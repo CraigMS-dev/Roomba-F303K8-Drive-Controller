@@ -41,6 +41,29 @@ const float wheelCirc = 3.14 * 0.8; // Circumference in metres
 
 // PID Configuration parameters
 // Specify the links and initial tuning parameters
+struct imuPID
+{
+	float q0;
+	float q1;
+	float q2;
+	float q3;
+
+	float yawTarget = 0;
+	float yawActual = 0;
+	float yawError = 0;
+	
+	double kp = 0;				  //0.02; // Proportional coefficient
+	double kd = 0;				  //0.01; // Derivative coefficient
+	double ki = 0;				  //16.0; // Integral coefficient
+	
+	int oldTime = 0;
+	int newTime = 0;
+	int dt;
+
+}
+
+// PID Configuration parameters
+// Specify the links and initial tuning parameters
 struct motorPID
 {
 	volatile long encoderPos = 0; // Current encoder position since the last clearance
@@ -52,8 +75,8 @@ struct motorPID
 	double speedDesired = 0;	  // PID Set Point
 	double speedPWM = 0;		  // RPM
 	double kp = 0;				  //0.02; // Proportional coefficient
-	double ki = 0;				  //16.0; // Integral coefficient
 	double kd = 0;				  //0.01; // Derivative coefficient
+	double ki = 0;				  //16.0; // Integral coefficient
 
 	float lastKnownPos = 0; // Last Known Position
 	float ticks_per_millisecond = 0;
