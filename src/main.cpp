@@ -4,6 +4,7 @@
 #include <PID_v1.h>
 #include "motorClass.h"
 #include "utilityFuncs.h"
+#include "math.h"
 
 // Hardware Timer check
 #if !defined(STM32_CORE_VERSION) || (STM32_CORE_VERSION < 0x01090000)
@@ -29,7 +30,7 @@
 #define stripLPI 150.0
 
 /* IMU definitions */
-
+#define IMU_STATE 1
 #define SPI_PORT SPI // 13 // Your desired SPI port.       Used only when "USE_SPI" is defined
 #define CS_PIN 10	 // Which pin you connect CS to. Used only when "USE_SPI" is defined
 
@@ -48,9 +49,16 @@ struct imuPID
 	float q2;
 	float q3;
 
+	float yawTotal = 0;
+	int   yawTotalSamples = 0;
+
 	float yawTarget = 0;
 	float yawActual = 0;
 	float yawError = 0;
+	float yawErrorOld = 0;
+	float yawErrorChange;
+	float yawErrorSlope = 0;
+	float yawErrorArea = 0;
 	
 	double kp = 0;				  //0.02; // Proportional coefficient
 	double kd = 0;				  //0.01; // Derivative coefficient
@@ -60,7 +68,7 @@ struct imuPID
 	int newTime = 0;
 	int dt;
 
-}
+}turnPID;
 
 // PID Configuration parameters
 // Specify the links and initial tuning parameters
@@ -117,6 +125,9 @@ PID pidRight(&motorR_PID.speed, &motorR_PID.speedPWM, &motorR_PID.speedDesired, 
 TIM_TypeDef *Instance1 = TIM2; // Creates an instance of hardware Timer 2
 HardwareTimer *Timer = new HardwareTimer(Instance1);
 
+TIM_TypeDef *Instance2 = TIM3; // Creates an instance of hardware Timer 2
+HardwareTimer *Timer2 = new HardwareTimer(Instance2);
+
 //******************************//
 //**** TACHOMETER SETUP ********//
 //******************************//
@@ -128,6 +139,9 @@ tachoWheel tachoL_o; // Right Tachometer Object (Will be integrated into the mot
 //******************************//
 int iter = 1;		// Loop counter
 int iter_coeff = 1; // Multiplier for the loop counter - Changes to negative to provide a triangular iterator
+int counter_1 = 0;
+
+float timer_1 = 0;
 
 //******************************//
 //****** SERIAL CONFIG *********//
@@ -135,6 +149,24 @@ int iter_coeff = 1; // Multiplier for the loop counter - Changes to negative to 
 char payload[100];			 // Incoming serial payload
 char modeSelect;			 // Mode select variable - Populated by the first character of the incoming packet
 bool stringComplete = false; // Serial string completion
+
+// Direction Callback - Calculate direction with IMU
+void dirCalc_callback(void){
+	//timer_1 = millis();
+	/*if (myICM.dataReady()){
+		myICM.getAGMT();
+		//turnPID.yawTotal += myICM.magX();
+		turnPID.yawTotal += myICM.magZ();
+		turnPID.yawTotalSamples++;
+		
+		if(turnPID.yawTotalSamples >= 5){
+			turnPID.yawActual = turnPID.yawTotal;// / turnPID.yawTotalSamples;
+			turnPID.yawTotal = 0;
+			turnPID.yawTotalSamples = 0;
+		}
+	}//*/
+	//Serial.println(millis());
+}
 
 // Speed Calc Callback
 void speedCalc_callback(void)
@@ -179,6 +211,10 @@ void printFormattedFloat(float val, uint8_t leading, uint8_t decimals)
 		Serial.print(val, decimals);
 }
 
+void getYaw(ICM_20948_SPI *sensor){
+	//Serial.println(atan2(sensor->magX(), sensor->magZ()) * 180 / M_PI);
+}
+
 // Print the scaled and cleaned IMU data
 void printScaledAGMT(ICM_20948_SPI *sensor)
 {
@@ -200,8 +236,8 @@ void printScaledAGMT(ICM_20948_SPI *sensor)
 	printFormattedFloat(sensor->magY(), 5, 2);
 	Serial.print("\t");
 	printFormattedFloat(sensor->magZ(), 5, 2);
-	Serial.print("\t");
-	printFormattedFloat(sensor->temp(), 5, 2);
+	//Serial.print("\t");
+	//printFormattedFloat(sensor->temp(), 5, 2);
 	Serial.println();
 }
 
@@ -249,6 +285,7 @@ void setup()
 	//Serial.println("Done");
 
 	//Serial.println("Initializing IMU... ");
+	//SPI_PORT.begin();
 	myICM.begin(CS_PIN, SPI_PORT);
 
 	bool initialized = false;
@@ -265,6 +302,7 @@ void setup()
 		else
 		{
 			initialized = true;
+			turnPID.newTime = millis();
 			//Serial.println("IMU initialized");
 		}
 	}
@@ -274,14 +312,19 @@ void setup()
 	noInterrupts();
 	Timer->setOverflow(60, HERTZ_FORMAT); // Read the tachometers 60 times per second
 	Timer->attachInterrupt(speedCalc_callback);
+
+	Timer2->setOverflow(120, HERTZ_FORMAT); // Read the tachometers 60 times per second
+	Timer2->attachInterrupt(dirCalc_callback);
 	interrupts();
 
 	Timer->resume();
+	Timer2->resume();
 	//Serial.println("Done - Timer Active");
-	Serial.print("s");
+	
+	Serial.println("System Ready!");
 
-	while ((char)Serial.read() != 's') { }
-	Serial.print("r");
+	//while ((char)Serial.read() != 's') { }
+	sysMode = TEST_IMU;
 }
 
 int stall = 50; // A delay value for the top of the testing triangle
@@ -321,6 +364,12 @@ void serialEvent()
 
 void loop()
 {
+	if(IMU_STATE)
+	turnPID.q0 = 0;
+	turnPID.q1 = 0;
+	turnPID.q2 = 0;
+	turnPID.q3 = 0;
+
 	// If a full packet has been captured at the beginning of the loop, process the result
 	if (stringComplete)
 	{
@@ -363,15 +412,29 @@ void loop()
 	}
 	else if (sysMode == TEST_IMU)
 	{
-		if (iter++ < 5)
-		{
-			if (myICM.dataReady())
-			{
+		//if (iter++ < 1000){
+			//if (myICM.dataReady()){
+				//myICM.getAGMT();
+				//Serial.print("XY ");
+				//atan2(myICM.magY(), myICM.magX()) * 180 / M_PI
+				//Serial.print(myICM.magZ());
+				//Serial.print("\t");
+			//Serial.print(myICM.magX());
+			//Serial.println(turnPID.yawActual);
+				//Serial.print("\t");
+				//Serial.println(myICM.magY());
+			//}
+			///*
+			if (myICM.dataReady()){
 				myICM.getAGMT();		 // The values are only updated when you call 'getAGMT'
 										 //    printRawAGMT( myICM.agmt );     // Uncomment this to see the raw values, taken directly from the agmt structure
 				printScaledAGMT(&myICM); // This function takes into account the scale settings from when the measurement was made to calculate the values with units
+				//getYaw(&myICM);
+				//Serial.println("Print IMU Output");
+				//Serial.print("\t Raw: ");
+				//Serial.println(myICM.magX());
 			}
-		}
+		/*}
 		else
 		{
 			sysMode = IDLE;
