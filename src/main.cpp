@@ -34,7 +34,7 @@
 #define SPI_PORT SPI // 13 // Your desired SPI port.       Used only when "USE_SPI" is defined
 #define CS_PIN 10	 // Which pin you connect CS to. Used only when "USE_SPI" is defined
 
-#define FILTER_UPDATE_RATE_HZ 100
+#define FILTER_UPDATE_RATE_HZ 200
 #define PRINT_EVERY_N_UPDATES 10
 //#define AHRS_DEBUG_OUTPUT
 
@@ -143,7 +143,7 @@ tachoWheel tachoL_o; // Right Tachometer Object (Will be integrated into the mot
 //******************************//
 uint32_t timestamp;
 //Adafruit_NXPSensorFusion filter; // slowest
-Adafruit_Madgwick filter;  // faster than NXP
+Adafruit_Madgwick filter;  // faster than NXP // Madgwick was chosen as http://www.cs.ndsu.nodak.edu/~siludwig/Publish/papers/SPIE20181.pdf details that it is better on average
 //Adafruit_Mahony filter;  // fastest/smalleset
 
 //******************************//
