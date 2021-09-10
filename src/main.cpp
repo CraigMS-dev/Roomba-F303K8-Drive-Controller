@@ -300,13 +300,13 @@ void setup()
 	//Serial.println("Done");
 
 	//Serial.println("Initializing IMU... ");
-	SPI_PORT.begin();
+	//SPI_PORT.begin();
+	myICM.begin(CS_PIN, SPI_PORT);
 	
 	bool initialized = false;
 	while (!initialized)
 	{
-		myICM.begin(CS_PIN, SPI_PORT);
-
+		
 		//Serial.print(F("Initialization of the sensor returned: "));
 		//Serial.println(myICM.statusString());
 		
@@ -426,6 +426,7 @@ void loop()
 	}
 	else if (sysMode == TEST_IMU)
 	{
+		//*
 		if (myICM.dataReady())
 		{
 			float roll, pitch, heading;
@@ -447,9 +448,9 @@ void loop()
 			Serial.print("Update took "); Serial.print(millis()-timestamp); Serial.println(" ms");
 			#endif
 			// only print the calculated output once in a while
-			/*if (counter++ <= PRINT_EVERY_N_UPDATES) {
-				return;
-			}*/
+			//if (counter++ <= PRINT_EVERY_N_UPDATES) {
+			//	return;
+			//}
 			// reset the counter
 			counter = 0;
 
@@ -461,15 +462,18 @@ void loop()
 			//Serial.print(heading);	Serial.print("\t");
 			//Serial.print(pitch);	Serial.print("\t");
 			//Serial.println(roll);
-
-			Serial.print("y");
-			Serial.print(heading);
-			Serial.print("yp");
-			Serial.print(pitch);
-			Serial.print("pr");
-			Serial.print(roll);
-			Serial.println("r");
-
+			
+			//Serial.print("MagZ: ");
+			Serial.print(myICM.magZ());
+			//Serial.print("y");
+			//Serial.print(heading);
+			//Serial.print("yp");
+			//Serial.print(pitch);
+			//Serial.print("pr");
+			//Serial.print(roll);
+			//Serial.print("r");
+			Serial.println();
+			
 			// y168.8099yp12.7914pr-11.8401r
 		}
 		else
@@ -477,6 +481,17 @@ void loop()
 			Serial.println("Waiting for data");
 			delay(500);
 		}//*/
+
+		
+		/*
+		if (myICM.dataReady())
+		{
+			myICM.getAGMT();		 // The values are only updated when you call 'getAGMT'
+									//    printRawAGMT( myICM.agmt );     // Uncomment this to see the raw values, taken directly from the agmt structure
+			printScaledAGMT(&myICM); // This function takes into account the scale settings from when the measurement was made to calculate the values with units
+		}
+		
+		//*/
 	}
 	else if (sysMode == TEST_DRIVE_SPEED)
 	{
