@@ -9,20 +9,17 @@ extern "C" {
 
 typedef struct Quaternion {
 
-    float a;
-    float b;
-    float c;
-    float d;
-
+    float a, b, c, d;
+    // a=w
+    // b=x
+    // c=y
+    // d=z
     // q = a + bi + cj + dk
 
 } Quaternion;
 
 typedef struct euler_angles {
-
-    float roll;
-    float pitch;
-    float yaw;
+    float roll, pitch, yaw;
 
 } euler_angles;
 

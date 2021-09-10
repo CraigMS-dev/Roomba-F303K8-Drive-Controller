@@ -136,6 +136,16 @@ tachoWheel tachoR_o; // Right Tachometer Object (Will be integrated into the mot
 tachoWheel tachoL_o; // Right Tachometer Object (Will be integrated into the motor class)
 
 //******************************//
+//******** IMU SETUP ***********//
+//******************************//
+int16_t AcX=0,AcY=0,AcZ=1,Tmp,GyX=0,GyY=0,GyZ=0,count=0;
+unsigned long Start = 0,loop_start,temp2;
+float delta,wx,wy,wz;
+euler_angles angles;
+vector_ijk fused_vector;
+Quaternion q_acc;
+
+//******************************//
 //******** ITERATORS ***********//
 //******************************//
 int iter = 1;		// Loop counter
@@ -312,6 +322,11 @@ void setup()
 		}
 	}
 
+	Start = millis();
+	fused_vector = vector_3d_initialize(0.0,0.0,-1.0);
+	q_acc = quaternion_initialize(1.0,0.0,0.0,0.0);
+	loop_start = millis();
+
 	//Serial.print("Configuring Timer... ");
 	delay(500);
 	noInterrupts();
@@ -370,10 +385,6 @@ void serialEvent()
 void loop()
 {
 	if(IMU_STATE)
-	//turnPID.q0 = 0;
-	//turnPID.q1 = 0;
-	//turnPID.q2 = 0;
-	//turnPID.q3 = 0;
 
 	// If a full packet has been captured at the beginning of the loop, process the result
 	if (stringComplete)
@@ -417,19 +428,57 @@ void loop()
 	}
 	else if (sysMode == TEST_IMU)
 	{
-		if (myICM.dataReady())
+		if (myICM.dataReady() && (delta < (1000 / 100)))
 		{
+			//Serial.print(GyX);Serial.print("\t");
+			//Serial.print(GyY);Serial.print("\t");
+			Serial.print(GyZ);Serial.print("\t");
+			
+			wx = 0.0005323*GyX;
+			wy = 0.0005323*GyY;
+			wz = GyZ;//0.0005323*
+
+			//Serial.print(wx);Serial.print("\t");
+			//Serial.print(wy);Serial.print("\t");
+			Serial.print(wz);Serial.print("\t");
+			
+			delta = 0.001*(millis()-Start);
+			fused_vector = update_fused_vector(fused_vector,AcX,AcY,AcZ,wx,wy,wz,delta);
+			Serial.print(fused_vector.a);Serial.print("\t");
+			Serial.print(fused_vector.b);Serial.print("\t");
+			Serial.print(fused_vector.c);Serial.print("\t");
+			
+			q_acc = quaternion_from_accelerometer(fused_vector.a,fused_vector.b,fused_vector.c);
+			Serial.print(q_acc.a);Serial.print("\t");
+			Serial.print(q_acc.b);Serial.print("\t");
+			Serial.print(q_acc.c);Serial.print("\t");
+			Serial.print(q_acc.d);Serial.print("\t");
+
+			angles = quaternion_to_euler_angles(q_acc);
+			Serial.print(int(angles.roll));Serial.print("\t");
+			Serial.print(int(angles.pitch));Serial.print("\t");
+			Serial.print(int(angles.yaw));
+			Serial.println();
+
+			Start = millis();
+
 			myICM.getAGMT();         // The values are only updated when you call 'getAGMT'
-									//    printRawAGMT( myICM.agmt );     // Uncomment this to see the raw values, taken directly from the agmt structure
-			printScaledAGMT(&myICM); // This function takes into account the scale settings from when the measurement was made to calculate the values with units
-			delay(30);
+			AcX=myICM.accX()*1000; // milli g's
+			AcY=myICM.accY()*1000; // milli g's
+			AcZ=myICM.accZ()*1000; // milli g's
+			
+			//* rad to deg: 180/3.14
+			GyX=myICM.gyrX(); // degrees/second
+			GyY=myICM.gyrY(); // degrees/second
+			GyZ=myICM.gyrZ(); // degrees/second
+			Tmp=myICM.temp();
+			delay(20);
 		}
 		else
 		{
 			Serial.println("Waiting for data");
 			delay(500);
-		}
-
+		}//*/
 	}
 	else if (sysMode == TEST_DRIVE_SPEED)
 	{
