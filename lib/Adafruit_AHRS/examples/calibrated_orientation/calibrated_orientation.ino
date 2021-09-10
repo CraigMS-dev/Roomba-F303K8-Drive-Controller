@@ -19,8 +19,8 @@ Adafruit_Sensor *accelerometer, *gyroscope, *magnetometer;
 
 // pick your filter! slower == better quality output
 //Adafruit_NXPSensorFusion filter; // slowest
-//Adafruit_Madgwick filter;  // faster than NXP
-Adafruit_Mahony filter;  // fastest/smalleset
+Adafruit_Madgwick filter;  // faster than NXP
+//Adafruit_Mahony filter;  // fastest/smalleset
 
 #if defined(ADAFRUIT_SENSOR_CALIBRATION_USE_EEPROM)
   Adafruit_Sensor_Calibration_EEPROM cal;

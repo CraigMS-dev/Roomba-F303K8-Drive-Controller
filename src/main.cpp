@@ -3,9 +3,8 @@
 #include <ICM_20948.h> // Sparkfun ICM_20948 IMU module
 #include <PID_v1.h>
 #include "motorClass.h"
-#include <quaternion.h>
-#include <sensor_processing_lib.h>
-#include <vector_3d.h>
+#include <Adafruit_Sensor.h>
+#include <Adafruit_AHRS.h>
 
 // Hardware Timer check
 #if !defined(STM32_CORE_VERSION) || (STM32_CORE_VERSION < 0x01090000)
@@ -34,6 +33,9 @@
 #define IMU_STATE 1
 #define SPI_PORT SPI // 13 // Your desired SPI port.       Used only when "USE_SPI" is defined
 #define CS_PIN 10	 // Which pin you connect CS to. Used only when "USE_SPI" is defined
+
+#define FILTER_UPDATE_RATE_HZ 100
+#define PRINT_EVERY_N_UPDATES 10
 
 // Configure SPI for IMU
 ICM_20948_SPI myICM; // If using SPI create an ICM_20948_SPI object
@@ -138,12 +140,8 @@ tachoWheel tachoL_o; // Right Tachometer Object (Will be integrated into the mot
 //******************************//
 //******** IMU SETUP ***********//
 //******************************//
-int16_t AcX=0,AcY=0,AcZ=1,Tmp,GyX=0,GyY=0,GyZ=0,count=0;
-unsigned long Start = 0,loop_start,temp2;
-float delta,wx,wy,wz;
-euler_angles angles;
-vector_ijk fused_vector;
-Quaternion q_acc;
+uint32_t timestamp;
+Adafruit_Madgwick filter;
 
 //******************************//
 //******** ITERATORS ***********//
@@ -322,11 +320,6 @@ void setup()
 		}
 	}
 
-	Start = millis();
-	fused_vector = vector_3d_initialize(0.0,0.0,-1.0);
-	q_acc = quaternion_initialize(1.0,0.0,0.0,0.0);
-	loop_start = millis();
-
 	//Serial.print("Configuring Timer... ");
 	delay(500);
 	noInterrupts();
@@ -341,6 +334,8 @@ void setup()
 	//Timer2->resume();
 	//Serial.println("Done - Timer Active");
 	
+	timestamp = millis();
+
 	Serial.println("System Ready!");
 
 	//while ((char)Serial.read() != 's') { }
@@ -428,51 +423,22 @@ void loop()
 	}
 	else if (sysMode == TEST_IMU)
 	{
-		if (myICM.dataReady() && (delta < (1000 / 100)))
+		if (myICM.dataReady())
 		{
-			//Serial.print(GyX);Serial.print("\t");
-			//Serial.print(GyY);Serial.print("\t");
-			Serial.print(GyZ);Serial.print("\t");
-			
-			wx = 0.0005323*GyX;
-			wy = 0.0005323*GyY;
-			wz = GyZ;//0.0005323*
+			float roll, pitch, heading;
+  			float gx, gy, gz;
+			static uint8_t counter = 0;
 
-			//Serial.print(wx);Serial.print("\t");
-			//Serial.print(wy);Serial.print("\t");
-			Serial.print(wz);Serial.print("\t");
-			
-			delta = 0.001*(millis()-Start);
-			fused_vector = update_fused_vector(fused_vector,AcX,AcY,AcZ,wx,wy,wz,delta);
-			Serial.print(fused_vector.a);Serial.print("\t");
-			Serial.print(fused_vector.b);Serial.print("\t");
-			Serial.print(fused_vector.c);Serial.print("\t");
-			
-			q_acc = quaternion_from_accelerometer(fused_vector.a,fused_vector.b,fused_vector.c);
-			Serial.print(q_acc.a);Serial.print("\t");
-			Serial.print(q_acc.b);Serial.print("\t");
-			Serial.print(q_acc.c);Serial.print("\t");
-			Serial.print(q_acc.d);Serial.print("\t");
+			 if ((millis() - timestamp) < (1000 / FILTER_UPDATE_RATE_HZ)) {
+				return;
+			}
+			timestamp = millis();
 
-			angles = quaternion_to_euler_angles(q_acc);
-			Serial.print(int(angles.roll));Serial.print("\t");
-			Serial.print(int(angles.pitch));Serial.print("\t");
-			Serial.print(int(angles.yaw));
-			Serial.println();
-
-			Start = millis();
-
-			myICM.getAGMT();         // The values are only updated when you call 'getAGMT'
-			AcX=myICM.accX()*1000; // milli g's
-			AcY=myICM.accY()*1000; // milli g's
-			AcZ=myICM.accZ()*1000; // milli g's
+			filter.update(
+				myICM.gyrX(), myICM.gyrY(), myICM.gyrZ(),
+				myICM.accX(), myICM.accY(), myICM.accZ(),
+				myICM.magX(), myICM.magY(), myICM.magZ());
 			
-			//* rad to deg: 180/3.14
-			GyX=myICM.gyrX(); // degrees/second
-			GyY=myICM.gyrY(); // degrees/second
-			GyZ=myICM.gyrZ(); // degrees/second
-			Tmp=myICM.temp();
-			delay(20);
 		}
 		else
 		{
