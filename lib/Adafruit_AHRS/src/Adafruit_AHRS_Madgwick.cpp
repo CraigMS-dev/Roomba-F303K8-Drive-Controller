@@ -281,20 +281,8 @@ float Adafruit_Madgwick::invSqrt(float x) {
 //-------------------------------------------------------------------------------------------
 
 void Adafruit_Madgwick::computeAngles() {
-  //roll = atan2f(q0 * q1 + q2 * q3, 0.5f - q1 * q1 - q2 * q2);
-  roll = atan2f((2 * (q0 * q1 + q2 * q3)), (1 - 2 * (q1 * q1 + q2 * q2)));
-
-  //pitch = asinf(-2.0f * (q1 * q3 - q0 * q2);
-  double sinp = 2 * (q0 * q2 - q3 * q1);
-  if (abs(sinp) >= 1)
-        pitch = copysign(3.141592 / 2, sinp); // use 90 degrees if out of range
-    else
-        pitch = asin(sinp);
-
-  //yaw = atan2f(q1 * q2 + q0 * q3, 0.5f - q2 * q2 - q3 * q3);
-  double siny_cosp = 2 * (q0 * q1 + q1 * q2);
-  double cosy_cosp = 1 - 2 * (q2 * q2 + q3 * q3);
-  yaw = atan2(siny_cosp, cosy_cosp);
-
+  roll = atan2f(q0 * q1 + q2 * q3, 0.5f - q1 * q1 - q2 * q2);
+  pitch = asinf(-2.0f * (q1 * q3 - q0 * q2));
+  yaw = atan2f(q1 * q2 + q0 * q3, 0.5f - q2 * q2 - q3 * q3);
   anglesComputed = 1;
 }
