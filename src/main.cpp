@@ -3,8 +3,6 @@
 #include <ICM_20948.h> // Sparkfun ICM_20948 IMU module
 #include <PID_v1.h>
 #include "motorClass.h"
-#include "utilityFuncs.h"
-#include "math.h"
 
 // Hardware Timer check
 #if !defined(STM32_CORE_VERSION) || (STM32_CORE_VERSION < 0x01090000)
@@ -42,7 +40,7 @@ const float wheelCirc = 3.14 * 0.8; // Circumference in metres
 
 // PID Configuration parameters
 // Specify the links and initial tuning parameters
-struct imuPID
+/*struct imuPID
 {
 	float q0;
 	float q1;
@@ -68,7 +66,7 @@ struct imuPID
 	int newTime = 0;
 	int dt;
 
-}turnPID;
+}turnPID;*/
 
 // PID Configuration parameters
 // Specify the links and initial tuning parameters
@@ -151,7 +149,7 @@ char modeSelect;			 // Mode select variable - Populated by the first character o
 bool stringComplete = false; // Serial string completion
 
 // Direction Callback - Calculate direction with IMU
-void dirCalc_callback(void){
+//void dirCalc_callback(void){
 	//timer_1 = millis();
 	/*if (myICM.dataReady()){
 		myICM.getAGMT();
@@ -166,7 +164,7 @@ void dirCalc_callback(void){
 		}
 	}//*/
 	//Serial.println(millis());
-}
+//}
 
 // Speed Calc Callback
 void speedCalc_callback(void)
@@ -180,66 +178,6 @@ void speedCalc_callback(void)
 // Hall encoder ISRs. Called once for each sensor on pin-change (quadrature)
 void encoderLeft_callback(void) { tachoL_o.encoderTick(); }
 void encoderRight_callback(void) { tachoR_o.encoderTick(); }
-
-// Print the formatted IMU variables
-void printFormattedFloat(float val, uint8_t leading, uint8_t decimals)
-{
-	float aval = abs(val);
-	if (val < 0)
-		Serial.print("-");
-	else
-		Serial.print(" ");
-
-	for (uint8_t indi = 0; indi < leading; indi++)
-	{
-		uint32_t tenpow = 0;
-		if (indi < (leading - 1))
-			tenpow = 1;
-
-		for (uint8_t c = 0; c < (leading - 1 - indi); c++)
-			tenpow *= 10;
-
-		if (aval < tenpow)
-			Serial.print("0");
-		else
-			break;
-	}
-
-	if (val < 0)
-		Serial.print(-val, decimals);
-	else
-		Serial.print(val, decimals);
-}
-
-void getYaw(ICM_20948_SPI *sensor){
-	//Serial.println(atan2(sensor->magX(), sensor->magZ()) * 180 / M_PI);
-}
-
-// Print the scaled and cleaned IMU data
-void printScaledAGMT(ICM_20948_SPI *sensor)
-{
-	//Serial.print("Scaled. Acc (mg) [ ");
-	printFormattedFloat(sensor->accX(), 5, 2);
-	Serial.print("\t");
-	printFormattedFloat(sensor->accY(), 5, 2);
-	Serial.print("\t");
-	printFormattedFloat(sensor->accZ(), 5, 2);
-	Serial.print("\t");
-	printFormattedFloat(sensor->gyrX(), 5, 2);
-	Serial.print("\t");
-	printFormattedFloat(sensor->gyrY(), 5, 2);
-	Serial.print("\t");
-	printFormattedFloat(sensor->gyrZ(), 5, 2);
-	Serial.print("\t");
-	printFormattedFloat(sensor->magX(), 5, 2);
-	Serial.print("\t");
-	printFormattedFloat(sensor->magY(), 5, 2);
-	Serial.print("\t");
-	printFormattedFloat(sensor->magZ(), 5, 2);
-	//Serial.print("\t");
-	//printFormattedFloat(sensor->temp(), 5, 2);
-	Serial.println();
-}
 
 void setup()
 {
@@ -285,15 +223,16 @@ void setup()
 	//Serial.println("Done");
 
 	//Serial.println("Initializing IMU... ");
-	//SPI_PORT.begin();
-	myICM.begin(CS_PIN, SPI_PORT);
-
+	SPI_PORT.begin();
+	
 	bool initialized = false;
 	while (!initialized)
 	{
+		myICM.begin(CS_PIN, SPI_PORT);
+
 		//Serial.print(F("Initialization of the sensor returned: "));
 		//Serial.println(myICM.statusString());
-
+		
 		if (myICM.status != ICM_20948_Stat_Ok)
 		{
 			//Serial.println("Trying again...");
@@ -302,10 +241,34 @@ void setup()
 		else
 		{
 			initialized = true;
-			turnPID.newTime = millis();
+			//turnPID.newTime = millis();
 			//Serial.println("IMU initialized");
 		}
 	}
+
+	//*********** INITIALISE IMU DPM **********************/
+	bool success = true; // Use success to show if the DMP configuration was successful
+
+  // Initialize the DMP. initializeDMP is a weak function. You can overwrite it if you want to e.g. to change the sample rate
+  success &= (myICM.initializeDMP() == ICM_20948_Stat_Ok);
+
+  // Enable the DMP Game Rotation Vector sensor
+  success &= (myICM.enableDMPSensor(INV_ICM20948_SENSOR_GAME_ROTATION_VECTOR) == ICM_20948_Stat_Ok);
+  success &= (myICM.setDMPODRrate(DMP_ODR_Reg_Quat6, 0) == ICM_20948_Stat_Ok); // Set to the maximum
+
+  // Enable the FIFO
+  success &= (myICM.enableFIFO() == ICM_20948_Stat_Ok);
+
+  // Enable the DMP
+  success &= (myICM.enableDMP() == ICM_20948_Stat_Ok);
+
+  // Reset DMP
+  success &= (myICM.resetDMP() == ICM_20948_Stat_Ok);
+
+  // Reset FIFO
+  success &= (myICM.resetFIFO() == ICM_20948_Stat_Ok);
+
+	//*********** END **********************/
 
 	//Serial.print("Configuring Timer... ");
 	delay(500);
@@ -313,12 +276,12 @@ void setup()
 	Timer->setOverflow(60, HERTZ_FORMAT); // Read the tachometers 60 times per second
 	Timer->attachInterrupt(speedCalc_callback);
 
-	Timer2->setOverflow(120, HERTZ_FORMAT); // Read the tachometers 60 times per second
-	Timer2->attachInterrupt(dirCalc_callback);
+	//Timer2->setOverflow(120, HERTZ_FORMAT); // Read the tachometers 60 times per second
+	//Timer2->attachInterrupt(dirCalc_callback);
 	interrupts();
 
 	Timer->resume();
-	Timer2->resume();
+	//Timer2->resume();
 	//Serial.println("Done - Timer Active");
 	
 	Serial.println("System Ready!");
@@ -365,10 +328,10 @@ void serialEvent()
 void loop()
 {
 	if(IMU_STATE)
-	turnPID.q0 = 0;
-	turnPID.q1 = 0;
-	turnPID.q2 = 0;
-	turnPID.q3 = 0;
+	//turnPID.q0 = 0;
+	//turnPID.q1 = 0;
+	//turnPID.q2 = 0;
+	//turnPID.q3 = 0;
 
 	// If a full packet has been captured at the beginning of the loop, process the result
 	if (stringComplete)
@@ -387,7 +350,7 @@ void loop()
 		{
 			Serial.println("Test Drive\n");
 			Serial.print("Speed (payload): ");
-			printString(payload);
+			//printString(payload); // Removed for space
 			sysMode = TEST_DRIVE_SPEED;
 		}
 		else if (modeSelect == 'D')
@@ -412,39 +375,56 @@ void loop()
 	}
 	else if (sysMode == TEST_IMU)
 	{
-		//if (iter++ < 1000){
-			//if (myICM.dataReady()){
-				//myICM.getAGMT();
-				//Serial.print("XY ");
-				//atan2(myICM.magY(), myICM.magX()) * 180 / M_PI
-				//Serial.print(myICM.magZ());
-				//Serial.print("\t");
-			//Serial.print(myICM.magX());
-			//Serial.println(turnPID.yawActual);
-				//Serial.print("\t");
-				//Serial.println(myICM.magY());
-			//}
-			///*
-			if (myICM.dataReady()){
-				myICM.getAGMT();		 // The values are only updated when you call 'getAGMT'
-										 //    printRawAGMT( myICM.agmt );     // Uncomment this to see the raw values, taken directly from the agmt structure
-				printScaledAGMT(&myICM); // This function takes into account the scale settings from when the measurement was made to calculate the values with units
-				//getYaw(&myICM);
-				//Serial.println("Print IMU Output");
-				//Serial.print("\t Raw: ");
-				//Serial.println(myICM.magX());
-			}
-		/*}
-		else
-		{
-			sysMode = IDLE;
-			iter = 0;
-		}
-		//*/
+		  // Read any DMP data waiting in the FIFO
+  // Note:
+  //    readDMPdataFromFIFO will return ICM_20948_Stat_FIFONoDataAvail if no data is available.
+  //    If data is available, readDMPdataFromFIFO will attempt to read _one_ frame of DMP data.
+  //    readDMPdataFromFIFO will return ICM_20948_Stat_FIFOIncompleteData if a frame was present but was incomplete
+  //    readDMPdataFromFIFO will return ICM_20948_Stat_Ok if a valid frame was read.
+  //    readDMPdataFromFIFO will return ICM_20948_Stat_FIFOMoreDataAvail if a valid frame was read _and_ the FIFO contains more (unread) data.
+  icm_20948_DMP_data_t data;
+  myICM.readDMPdataFromFIFO(&data);
+
+  if ((myICM.status == ICM_20948_Stat_Ok) || (myICM.status == ICM_20948_Stat_FIFOMoreDataAvail)) // Was valid data available?
+  {
+    if ((data.header & DMP_header_bitmap_Quat6) > 0) // We have asked for GRV data so we should receive Quat6
+    {
+      // Q0 value is computed from this equation: Q0^2 + Q1^2 + Q2^2 + Q3^2 = 1.
+      // In case of drift, the sum will not add to 1, therefore, quaternion data need to be corrected with right bias values.
+      // The quaternion data is scaled by 2^30.
+
+      //SERIAL_PORT.printf("Quat6 data is: Q1:%ld Q2:%ld Q3:%ld\r\n", data.Quat6.Data.Q1, data.Quat6.Data.Q2, data.Quat6.Data.Q3);
+
+      // Scale to +/- 1
+      double q1 = ((double)data.Quat6.Data.Q1) / 1073741824.0; // Convert to double. Divide by 2^30
+      double q2 = ((double)data.Quat6.Data.Q2) / 1073741824.0; // Convert to double. Divide by 2^30
+      double q3 = ((double)data.Quat6.Data.Q3) / 1073741824.0; // Convert to double. Divide by 2^30
+
+      // Convert the quaternions to Euler angles (roll, pitch, yaw)
+      // https://en.wikipedia.org/w/index.php?title=Conversion_between_quaternions_and_Euler_angles&section=8#Source_code_2
+
+      double q0 = sqrt(1.0 - ((q1 * q1) + (q2 * q2) + (q3 * q3)));
+
+      double q2sqr = q2 * q2;
+
+      // yaw (z-axis rotation)
+      double t3 = +2.0 * (q0 * q3 + q1 * q2);
+      double t4 = +1.0 - 2.0 * (q2sqr + q3 * q3);
+      double yaw = atan2(t3, t4) * 180.0 / PI;
+
+      //Serial.print(F(" Yaw:"));
+      Serial.println(yaw, 1);
+    }
+  }
+
+  if (myICM.status != ICM_20948_Stat_FIFOMoreDataAvail) // If more data is available then we should read it right away - and not delay
+  {
+    delay(10);
+  }
+
 	}
 	else if (sysMode == TEST_DRIVE_SPEED)
 	{
-
 		if (payload > 0)
 		{
 			motorL_PID.speedDesired = atof(payload);
@@ -468,7 +448,6 @@ void loop()
 		}
 		else
 		{
-			Serial.println("Brake both motors");
 			motorL.drive(0); // Output
 			motorR.drive(0); // Output
 			delay(20);
@@ -477,57 +456,9 @@ void loop()
 	}
 	else if (sysMode == TEST_DRIVE)
 	{
-		if (stall-- > 0)
-		{
-			Serial.print(0.001); // Tachometer
-			Serial.print("\t");
-			Serial.print(0); // Tachometer
-			Serial.print("\t");
-			Serial.println(0); // Tachometer
-			motorL_PID.speedDesired = 140;
-			motorR_PID.speedDesired = 140;
-			delay(30);
-		}
-		else if (iter++ < 800)
-		{
-			//}else if(iter > 0){
-			/*if(iter == 600){
-          if(stall-- > 0){
-          }else{
-            iter--;
-            iter_coeff = -1;
-          }
-          
-        }else{
-          iter += iter_coeff;
-        }*/
-		}
-		else
-		{
-			sysMode = IDLE;
-		}
-
 		// Used for the triangle test
 		//motorL_PID.speedDesired = map(iter, 0, 600, 0, 140);
 		//motorR_PID.speedDesired = map(iter, 0, 600, 0, 140);
-
-		switch (iter)
-		{
-		case 200:
-			motorL_PID.speedDesired = 80;
-			motorR_PID.speedDesired = 80;
-			break;
-		case 300:
-			motorL_PID.speedDesired = 100;
-			motorR_PID.speedDesired = 100;
-			break;
-		case 700:
-			motorL_PID.speedDesired = 40;
-			motorR_PID.speedDesired = 40;
-			break;
-		default:
-			break;
-		}
 
 		pidLeft.Compute();
 		pidRight.Compute();

@@ -1,9 +1,7 @@
 #include <motorClass.h>
 #include <Arduino.h>
 
-tachoWheel::tachoWheel(){
-    
-}
+tachoWheel::tachoWheel(){}
 
 void tachoWheel::encoderTick(){
     PeriodBetweenPulses   = micros() - LastTimeWeMeasured;
