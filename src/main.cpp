@@ -34,7 +34,7 @@
 #define SPI_PORT SPI // 13 // Your desired SPI port.       Used only when "USE_SPI" is defined
 #define CS_PIN 10	 // Which pin you connect CS to. Used only when "USE_SPI" is defined
 
-#define FILTER_UPDATE_RATE_HZ 200
+#define FILTER_UPDATE_RATE_HZ 100
 #define PRINT_EVERY_N_UPDATES 10
 //#define AHRS_DEBUG_OUTPUT
 

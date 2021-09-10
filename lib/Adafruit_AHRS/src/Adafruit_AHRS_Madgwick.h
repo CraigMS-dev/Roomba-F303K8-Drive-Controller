@@ -42,7 +42,8 @@ private:
 public:
   Adafruit_Madgwick(void);
   void begin(float sampleFrequency) { invSampleFreq = 1.0f / sampleFrequency; }
-  void update(float gx, float gy, float gz, float ax, float ay, float az,
+  void update(float gx, float gy, float gz, 
+              float ax, float ay, float az,
               float mx, float my, float mz);
   void updateIMU(float gx, float gy, float gz, float ax, float ay, float az);
   // float getPitch(){return atan2f(2.0f * q2 * q3 - 2.0f * q0 * q1, 2.0f * q0 *
