@@ -36,6 +36,7 @@
 
 #define FILTER_UPDATE_RATE_HZ 100
 #define PRINT_EVERY_N_UPDATES 10
+//#define AHRS_DEBUG_OUTPUT
 
 // Configure SPI for IMU
 ICM_20948_SPI myICM; // If using SPI create an ICM_20948_SPI object
@@ -141,7 +142,9 @@ tachoWheel tachoL_o; // Right Tachometer Object (Will be integrated into the mot
 //******** IMU SETUP ***********//
 //******************************//
 uint32_t timestamp;
-Adafruit_Madgwick filter;
+//Adafruit_NXPSensorFusion filter; // slowest
+Adafruit_Madgwick filter;  // faster than NXP
+//Adafruit_Mahony filter;  // fastest/smalleset
 
 //******************************//
 //******** ITERATORS ***********//
@@ -434,11 +437,40 @@ void loop()
 			}
 			timestamp = millis();
 
+			myICM.getAGMT();
 			filter.update(
 				myICM.gyrX(), myICM.gyrY(), myICM.gyrZ(),
 				myICM.accX(), myICM.accY(), myICM.accZ(),
 				myICM.magX(), myICM.magY(), myICM.magZ());
 			
+			#if defined(AHRS_DEBUG_OUTPUT)
+			Serial.print("Update took "); Serial.print(millis()-timestamp); Serial.println(" ms");
+			#endif
+			// only print the calculated output once in a while
+			/*if (counter++ <= PRINT_EVERY_N_UPDATES) {
+				return;
+			}*/
+			// reset the counter
+			counter = 0;
+
+			// print the heading, pitch and roll
+			roll 	= filter.getRoll();
+			pitch 	= filter.getPitch();
+			heading = filter.getYaw();
+			//Serial.print("Orientation: ");
+			//Serial.print(heading);	Serial.print("\t");
+			//Serial.print(pitch);	Serial.print("\t");
+			//Serial.println(roll);
+
+			Serial.print("y");
+			Serial.print(heading);
+			Serial.print("yp");
+			Serial.print(pitch);
+			Serial.print("pr");
+			Serial.print(roll);
+			Serial.println("r");
+
+			// y168.8099yp12.7914pr-11.8401r
 		}
 		else
 		{
