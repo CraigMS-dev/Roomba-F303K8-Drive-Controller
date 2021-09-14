@@ -61,6 +61,12 @@ struct motorPID
 	long wheelSpeedDistance = 0; // RPM
 } motorL_PID, motorR_PID;
 
+int desR = 0;
+int desL = 0;
+
+int directionR = 0; // 1 = forward, 0 = backwards
+int directionL = 0;
+
 // System states/modes
 enum sysModes
 {
@@ -69,6 +75,7 @@ enum sysModes
 	TEST_TURN,
 	TEST_DRIVE,
 	TEST_DRIVE_SPEED,
+	TEST_TACHO,
 	ACTIVE,
 	STOPPED
 };
@@ -187,7 +194,7 @@ void setup()
 {
 	Serial.begin(115200);
 
-	while (!Serial) { }
+	while (!Serial){}
 
 	// Configure Encoder Pins
 	//Serial.print("Configuring pins and attaching interrupts... ");
@@ -223,7 +230,7 @@ void setup()
 
 	//Serial.print("Setting PID characteristics... ");
 	pidLeft.SetTunings(0.8, 11.0, 0.1); // kP, kI, kD
-	pidRight.SetTunings(0.05, 18.0, 0.01);
+	pidRight.SetTunings(0.8, 11.0, 0.1);
 	//Serial.println("Done");
 
 	//Serial.println("Initializing IMU... ");
@@ -257,10 +264,12 @@ void setup()
 	Timer->resume();
 	//Serial.println("Done - Timer Active");
 	//Serial.print("s");
-
+	
+	Serial.println("System Ready...");
+	
 	//while ((char)Serial.read() != 's') { }
 	//Serial.print("r");
-	//sysMode = TEST_TURN;
+	sysMode = TEST_DRIVE;
 }
 
 int stall = 50; // A delay value for the top of the testing triangle
@@ -330,6 +339,11 @@ void loop()
 			Serial.println("Test Turn Sequence\n");
 			sysMode = TEST_TURN;
 		}
+		else if (modeSelect == 'S')
+		{
+			Serial.println("Test Tachometry\n");
+			sysMode = TEST_TACHO;
+		}
 		else if (modeSelect == 'X')
 		{
 			Serial.println("System Halted");
@@ -370,27 +384,41 @@ void loop()
 			motorL_PID.speedDesired = atof(payload);
 			motorR_PID.speedDesired = atof(payload);
 
-			pidLeft.Compute();
-			pidRight.Compute();
+			if(pidLeft.Compute()){
+				//Serial.println("#########################");
+				//Serial.println("Left PID Compute Failed!!");
+				//Serial.println("#########################");
+				motorL.drive(motorL_PID.speedPWM); // Output
+			};
 
-			// TODO NOT WORKING IN REVERSE
-			motorL.drive(motorL_PID.speedPWM); // Output
-			motorR.drive(motorR_PID.speedPWM); // Output
+			if(pidRight.Compute()){
+				//Serial.println("##########################");
+				//Serial.println("Right PID Compute Failed!!");
+				//Serial.println("##########################");
+				motorR.drive(motorR_PID.speedPWM); // Output
+			};
 
 			// Print information on the serial monitor
+			//Serial.print(iter); // Tachometer
+			//Serial.print("\t");
 			Serial.print(motorL_PID.speedDesired); // Tachometer
 			Serial.print("\t");
+			Serial.print(motorR_PID.speedDesired); // Tachometer
+			Serial.print("\t");
+			//Serial.print(motorL_PID.speedPWM); // Tachometer
+			//Serial.print("\t");
+			//Serial.print(motorR_PID.speedPWM); // Tachometer
+			//Serial.print("\t");
 			Serial.print(motorL_PID.speed); // Tachometer
 			Serial.print("\t");
 			Serial.print(motorR_PID.speed); // Tachometer
-			Serial.print("\t");
 			Serial.println();
 		}
 		else
 		{
 			Serial.println("Brake both motors");
 			motorL.drive(0); // Output
-			motorR.drive(0); // Output
+			//motorR.drive(0); // Output
 			delay(20);
 			brake(motorL, motorR);
 		}
@@ -429,73 +457,61 @@ void loop()
 	}
 	else if (sysMode == TEST_DRIVE)
 	{
-		if (stall-- > 0)
+		
+		if(iter >= 200)
 		{
-			Serial.print(0.001); // Tachometer
-			Serial.print("\t");
-			Serial.print(0); // Tachometer
-			Serial.print("\t");
-			Serial.println(0); // Tachometer
-			motorL_PID.speedDesired = 140;
-			motorR_PID.speedDesired = 140;
-			delay(30);
+			iter = 0;
 		}
-		else if (iter++ < 800)
+		else if(iter >= 100)
 		{
-			//}else if(iter > 0){
-			/*if(iter == 600){
-          if(stall-- > 0){
-          }else{
-            iter--;
-            iter_coeff = -1;
-          }
-          
-        }else{
-          iter += iter_coeff;
-        }*/
+			desL = 25;
+			desR = 25;
+			directionR = -1;
+			directionL = 1;
 		}
-		else
+		else if(iter >= 0)
 		{
-			sysMode = IDLE;
+			directionR = 1;
+			directionL = -1;
+			desL = 25;
+			desR = 25;
 		}
+		iter++;
 
-		// Used for the triangle test
-		//motorL_PID.speedDesired = map(iter, 0, 600, 0, 140);
-		//motorR_PID.speedDesired = map(iter, 0, 600, 0, 140);
-
-		switch (iter)
-		{
-		case 200:
-			motorL_PID.speedDesired = 80;
-			motorR_PID.speedDesired = 80;
-			break;
-		case 300:
-			motorL_PID.speedDesired = 100;
-			motorR_PID.speedDesired = 100;
-			break;
-		case 700:
-			motorL_PID.speedDesired = 40;
-			motorR_PID.speedDesired = 40;
-			break;
-		default:
-			break;
-		}
+		motorL_PID.speedDesired = desL;
+		motorR_PID.speedDesired = desR;
 
 		pidLeft.Compute();
 		pidRight.Compute();
 
-		motorL.drive(motorL_PID.speedPWM); // Output
-		motorR.drive(motorR_PID.speedPWM); // Output
+		motorL.drive(motorL_PID.speedPWM*directionL); // Output
+		motorR.drive(motorR_PID.speedPWM*directionR); // Output
 
 		// Print information on the serial monitor
-		Serial.print(motorL_PID.speedDesired); // Tachometer
+		//Serial.print(iter); // Tachometer
+		//Serial.print("\t");
+		Serial.print(motorL_PID.speedDesired*directionL); // Tachometer
 		Serial.print("\t");
-		Serial.print(motorL_PID.speed); // Tachometer
+		Serial.print(motorR_PID.speedDesired*directionL); // Tachometer
 		Serial.print("\t");
-		Serial.print(motorR_PID.speed); // Tachometer
+		//Serial.print(motorL_PID.speedPWM); // Tachometer
+		//Serial.print("\t");
+		//Serial.print(motorR_PID.speedPWM); // Tachometer
+		//Serial.print("\t");
+		Serial.print(motorL_PID.speed*directionL); // Tachometer
 		Serial.print("\t");
+		Serial.print(motorR_PID.speed*directionL); // Tachometer
 		Serial.println();
 		//*/
+	}
+	else if (sysMode == TEST_TACHO)
+	{
+		if(tachoL_o.getVelocity() > 0 || tachoR_o.getVelocity() > 0){
+			Serial.print(tachoL_o.getVelocity());
+			Serial.print("\t");
+			Serial.print(tachoR_o.getVelocity());
+			Serial.println();
+		}
 	}
 	else if (sysMode == STOPPED)
 	{
