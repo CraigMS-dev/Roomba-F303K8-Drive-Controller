@@ -5,6 +5,7 @@ class tachoWheel{
         tachoWheel();
         void            calcVelocity();
         void            encoderTick();
+        void            encoderTickDir();
         
         unsigned long   getVelocity(){return average;}
 
@@ -44,4 +45,6 @@ class tachoWheel{
         unsigned long readIndex;  // The index of the current reading.
         unsigned long total;  // The running total.
         unsigned long average;  // The RPM value after applying the smoothing.
+
+        bool direction; // 0 = clockwise, 1 = counter clockwise
 };
