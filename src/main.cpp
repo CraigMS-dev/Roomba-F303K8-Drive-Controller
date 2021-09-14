@@ -177,7 +177,6 @@ void printScaledAGMT(ICM_20948_SPI *sensor)
 	//printFormattedFloat(sensor->magY(), 5, 2);
 	//Serial.print("\t");
 	printFormattedFloat(sensor->magZ(), 5, 2);
-	//Serial.print("\t");
 	//printFormattedFloat(sensor->temp(), 5, 2);
 	Serial.println();
 }
