@@ -66,6 +66,7 @@ enum sysModes
 {
 	IDLE,
 	TEST_IMU,
+	TEST_TURN,
 	TEST_DRIVE,
 	TEST_DRIVE_SPEED,
 	ACTIVE,
@@ -200,10 +201,10 @@ void setup()
 	digitalWrite(encoderRB, HIGH);
 
 	// Attach hardware interrupts to encoder pins
-	attachInterrupt(encoderLA, encoderLeft_callback, CHANGE);
-	attachInterrupt(encoderLB, encoderLeft_callback, CHANGE);
-	attachInterrupt(encoderRA, encoderRight_callback, CHANGE);
-	attachInterrupt(encoderRB, encoderRight_callback, CHANGE);
+	attachInterrupt(encoderLA, encoderLeft_callback, 	CHANGE);
+	attachInterrupt(encoderLB, encoderLeft_callback, 	CHANGE);
+	attachInterrupt(encoderRA, encoderRight_callback, 	CHANGE);
+	attachInterrupt(encoderRB, encoderRight_callback, 	CHANGE);
 
 	// Halt both motors
 	brake(motorL, motorR);
@@ -259,6 +260,7 @@ void setup()
 
 	//while ((char)Serial.read() != 's') { }
 	//Serial.print("r");
+	//sysMode = TEST_TURN;
 }
 
 int stall = 50; // A delay value for the top of the testing triangle
@@ -323,6 +325,11 @@ void loop()
 			Serial.println("Test Drive Sequence\n");
 			sysMode = TEST_DRIVE;
 		}
+		else if (modeSelect == 'D')
+		{
+			Serial.println("Test Turn Sequence\n");
+			sysMode = TEST_TURN;
+		}
 		else if (modeSelect == 'X')
 		{
 			Serial.println("System Halted");
@@ -358,7 +365,6 @@ void loop()
 	}
 	else if (sysMode == TEST_DRIVE_SPEED)
 	{
-
 		if (payload > 0)
 		{
 			motorL_PID.speedDesired = atof(payload);
@@ -388,6 +394,38 @@ void loop()
 			delay(20);
 			brake(motorL, motorR);
 		}
+	}
+	else if (sysMode == TEST_TURN)
+	{
+		//if (payload > 0)
+		//{
+			motorL_PID.speedDesired = atof(payload);
+			motorR_PID.speedDesired = atof(payload);
+
+			pidLeft.Compute();
+			pidRight.Compute();
+
+			// TODO NOT WORKING IN REVERSE
+			motorL.drive(motorL_PID.speedPWM); // Output
+			motorR.drive(motorR_PID.speedPWM); // Output
+
+			// Print information on the serial monitor
+			Serial.print(motorL_PID.speedDesired); // Tachometer
+			Serial.print("\t");
+			Serial.print(motorL_PID.speed); // Tachometer
+			Serial.print("\t");
+			Serial.print(motorR_PID.speed); // Tachometer
+			Serial.print("\t");
+			Serial.println();
+		//}
+		//else
+		//{
+			//Serial.println("Brake both motors");
+			//motorL.drive(0); // Output
+			//motorR.drive(0); // Output
+			//delay(20);
+			//brake(motorL, motorR);
+		//}
 	}
 	else if (sysMode == TEST_DRIVE)
 	{
