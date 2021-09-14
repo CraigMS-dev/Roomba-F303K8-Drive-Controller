@@ -11,6 +11,15 @@
 #error "Due to API change, this sketch is compatible with STM32_CORE_VERSION  >= 0x01090000"
 #endif
 
+
+#if DEBUG == 1
+#define debug(x) 	Serial.print(x)
+#define debugln(x) 	Serial.println(x)
+#else
+#define debug(x)
+#define debugln(x)
+#endif
+
 /* Define Motor Driver Pins */
 #define AIN1 3
 #define BIN1 7
@@ -145,6 +154,17 @@ uint32_t timestamp;
 //Adafruit_NXPSensorFusion filter; // slowest
 Adafruit_Madgwick filter;  // faster than NXP // Madgwick was chosen as http://www.cs.ndsu.nodak.edu/~siludwig/Publish/papers/SPIE20181.pdf details that it is better on average
 //Adafruit_Mahony filter;  // fastest/smalleset
+double magZtot = 0;
+double magZavg = 0;
+double avgMag[10];
+
+double magXtot = 0;
+double magXavg = 0;
+double avgMagX[10];
+
+double magYtot = 0;
+double magYavg = 0;
+double avgMagY[10];
 
 //******************************//
 //******** ITERATORS ***********//
@@ -439,10 +459,22 @@ void loop()
 			timestamp = millis();
 
 			myICM.getAGMT();
+
+			avgMag[iter++] 	= myICM.magZ();
+			avgMagX[iter] 	= myICM.magX();
+			avgMagY[iter] 	= myICM.magY();
+			if(iter == 10){iter = 0;}
+			magZavg = 0;
+			for(counter_1 = 0; counter_1 < 10; counter_1++){magZavg += avgMag[counter_1];}
+			magXavg = 0;
+			for(counter_1 = 0; counter_1 < 10; counter_1++){magXavg += avgMagX[counter_1];}
+			magYavg = 0;
+			for(counter_1 = 0; counter_1 < 10; counter_1++){magYavg += avgMagY[counter_1];}
+
 			filter.update(
 				myICM.gyrX(), myICM.gyrY(), myICM.gyrZ(),
 				myICM.accX(), myICM.accY(), myICM.accZ(),
-				myICM.magX(), myICM.magY(), myICM.magZ());
+				myICM.magX(), myICM.magY(), magZavg/10);
 			
 			#if defined(AHRS_DEBUG_OUTPUT)
 			Serial.print("Update took "); Serial.print(millis()-timestamp); Serial.println(" ms");
@@ -463,8 +495,24 @@ void loop()
 			//Serial.print(pitch);	Serial.print("\t");
 			//Serial.println(roll);
 			
+			//magZtot += myICM.magZ();
+			
 			//Serial.print("MagZ: ");
-			Serial.print(myICM.magZ());
+			
+			//Serial.print(myICM.magX()); Serial.print("\t");
+			//Serial.print(myICM.magY()); Serial.print("\t");
+			//Serial.print(myICM.magZ());		Serial.print("\t");
+			
+			Serial.print(magZavg/10); 	Serial.print("\t");
+			Serial.print(magXavg/10); 	Serial.print("\t");
+			Serial.print(magYavg/10); 	Serial.print("\t");
+
+			Serial.print(roll); 		Serial.print("\t");
+			Serial.print(pitch); 		Serial.print("\t");
+			Serial.print(heading);
+			Serial.println();
+			counter_1 = 0;
+
 			//Serial.print("y");
 			//Serial.print(heading);
 			//Serial.print("yp");
@@ -472,7 +520,7 @@ void loop()
 			//Serial.print("pr");
 			//Serial.print(roll);
 			//Serial.print("r");
-			Serial.println();
+			//Serial.println();
 			
 			// y168.8099yp12.7914pr-11.8401r
 		}
