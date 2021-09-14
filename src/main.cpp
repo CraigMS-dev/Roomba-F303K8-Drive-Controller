@@ -144,7 +144,7 @@ HardwareTimer *Timer2 = new HardwareTimer(Instance2);
 //******************************//
 //**** TACHOMETER SETUP ********//
 //******************************//
-tachoWheel tachoR_o; // Right Tachometer Object (Will be integrated into the motor class)
+tachoWheel tachoR_o; // Right Tachometer sObject (Will be integrated into the motor class)
 tachoWheel tachoL_o; // Right Tachometer Object (Will be integrated into the motor class)
 
 //******************************//
