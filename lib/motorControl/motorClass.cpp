@@ -1,14 +1,18 @@
 #include <motorClass.h>
 #include <Arduino.h>
 
+
+
 tachoWheel::tachoWheel(){
     
 }
 
-void tachoWheel::encoderTickDir(){
+void tachoWheel::encoderTickLeft(){
     PeriodBetweenPulses   = micros() - LastTimeWeMeasured;
     LastTimeWeMeasured    = micros();
 
+    fired = 1;
+    
     if(PulseCounter >= AmountOfReadings){  // If counter for amount of readings reach the set limit:
     
         PeriodAverage  = PeriodSum / AmountOfReadings;
@@ -24,7 +28,25 @@ void tachoWheel::encoderTickDir(){
         AmountOfReadings = RemapedAmountOfReadingsL;  // Set amount of readings as the remaped value.
     
     }else{
-        PulseCounter++;  // Increase the counter for amount of readings by 1.
+        LOld = LNew;
+        // Access the Digital Input Register directly - MUCH faster than digitalRead()
+        
+        // Convert binary input to decimal value 
+        // (PINC & 0b0001) gets the value of bit zero in port C (A0), ((PINC & 0b0010) >> 1) gets just the value of A1
+        LNew = ((GPIOA->IDR >> 0) & 1) * 2 + ((GPIOA->IDR >> 1) & 1);
+        increment = QEM[LOld * 4 + LNew];
+        if(increment > 0){
+            direction = 1;
+        }else if(increment < 0){
+            direction = -1;
+        }else{
+            direction = 0;
+        }
+        
+        PulseCounter += increment;
+        wheelSpeedDistanceL += increment;
+
+        //PulseCounter++;  // Increase the counter for amount of readings by 1.
         PeriodSum = PeriodSum + PeriodBetweenPulses;  // Add the periods so later we can average.
     }
 }

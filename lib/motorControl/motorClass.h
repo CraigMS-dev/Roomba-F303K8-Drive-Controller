@@ -3,9 +3,11 @@
 class tachoWheel{
     public:
         tachoWheel();
+        
         void            calcVelocity();
         void            encoderTick();
-        void            encoderTickDir();
+        void            encoderTickLeft();
+        void            encoderTickRight();
         
         unsigned long   getVelocity(){return average;}
 
@@ -25,15 +27,15 @@ class tachoWheel{
         volatile unsigned long  PeriodAverage = ZeroTimeout+1000;       // Stores the period between pulses in microseconds in total, if we are taking multiple pulses.
 
         unsigned long   CurrentMicros = micros(); // Micros at the current cycle
-        unsigned long   FrequencyRaw;             // Calculated frequency, based on the period. This has a lot of extra decimals without the decimal point.
-        unsigned long   FrequencyReal;            // Frequency without decimals.
+        long   FrequencyRaw;             // Calculated frequency, based on the period. This has a lot of extra decimals without the decimal point.
+        long   FrequencyReal;            // Frequency without decimals.
         unsigned long   PeriodSum;                // Stores the summation of all the periods to do the average.
-        unsigned long   RPM;                      // Raw RPM without any processing.
+        long   RPM;                      // Raw RPM without any processing.
         unsigned long   LastTimeCycleMeasure = LastTimeWeMeasured; // Stores the last time we measure a pulse in that cycle.
                                             // We need a variable with a value that is not going to be affected by the interrupt
                                             // because we are going to do math and functions that are going to mess up if the values
                                             // changes in the middle of the cycle.
-        unsigned int    PulseCounter = 1;         // Counts the amount of pulse readings we took so we can average multiple pulses before calculating the period.
+        int    PulseCounter = 1;         // Counts the amount of pulse readings we took so we can average multiple pulses before calculating the period.
         unsigned int    AmountOfReadings = 1;     // Stores the last time we measure a pulse in that cycle.
                                                     // We need a variable with a value that is not going to be affected by the interrupt
                                                     // because we are going to do math and functions that are going to mess up if the values
@@ -41,10 +43,25 @@ class tachoWheel{
         unsigned int    ZeroDebouncingExtra;      // Stores the extra value added to the ZeroTimeout to debounce it.
 
         // Variables for smoothing tachometer:
-        unsigned long readings[10];  // The input. // [numReadings]
-        unsigned long readIndex;  // The index of the current reading.
-        unsigned long total;  // The running total.
-        unsigned long average;  // The RPM value after applying the smoothing.
+        long readings[10];  // The input. // [numReadings]
+        long readIndex;  // The index of the current reading.
+        long total;  // The running total.
+        long average;  // The RPM value after applying the smoothing.
 
-        bool direction; // 0 = clockwise, 1 = counter clockwise
+        volatile long encoderPosL = 0;
+        volatile long encoderPosR = 0;
+
+        long wheelSpeedDistanceL = 0; // RPM
+        long wheelSpeedDistanceR = 0; // RPM
+        float lastKnownPosL = 0;
+        float lastKnownPosR = 0;
+
+        bool fired = 0;
+        int QEM [16] = {0,-1,1,2,1,0,2,-1,-1,2,0,1,2,1,-1,0}; 
+        int LOld = 0; // Previous encoder value left motor
+        int ROld = 0; // Previous encoder value right motor
+        int LNew = 0; // New encoder value left motor
+        int RNew = 0; // New encoder value right motor
+        int increment = 0;
+        int8_t direction; // 0 = clockwise, 1 = counter clockwise
 };
