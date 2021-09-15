@@ -4,8 +4,9 @@
 #include <PID_v1.h>
 #include "motorClass.h"
 #include "utilityFuncs.h"
-#include "Rotary.h"
+//#include "Rotary.h"
 //#include <RotaryEncoder.h>
+#include <Encoder.h>
 
 // Hardware Timer check
 #if !defined(STM32_CORE_VERSION) || (STM32_CORE_VERSION < 0x01090000)
@@ -114,13 +115,14 @@ tachoWheel tachoL_o; // Right Tachometer Object (Will be integrated into the mot
 long oldPosition  = -999;
 //RotaryEncoder *encoder = nullptr;
 //Rotary rotary = Rotary(encoderLA, encoderLB);
-int counter = 0;
+Encoder myEnc(encoderLA, encoderLB);
 
 //******************************//
 //******** ITERATORS ***********//
 //******************************//
 int iter = 1;		// Loop counter
 int iter_coeff = 1; // Multiplier for the loop counter - Changes to negative to provide a triangular iterator
+int counter = 0;
 
 //******************************//
 //****** SERIAL CONFIG *********//
@@ -153,13 +155,16 @@ int LNew = 0; // New encoder value left motor
 // Hall encoder ISRs. Called once for each sensor on pin-change (quadrature)
 //void encoderLeft_callback(void) { tachoL_o.encoderTickLeft(); }
 //void encoderRight_callback(void) { tachoR_o.encoderTick(); }
-void encoderLeft_callback(void) { 
+void encoderLeft_callback(void){
 	LOld = LNew;
 	// Access the Digital Input Register directly - MUCH faster than digitalRead()
-    LNew = ((GPIOA->IDR >> 0) & 1) * 2 + ((GPIOA->IDR >> 1) & 1); // Convert binary input to decimal value // (PINC & 0b0001) gets the value of bit zero in port C (A0), ((PINC & 0b0010) >> 1) gets just the value of A1
-    encoderPosL += QEM[LOld * 4 + LNew];
-    wheelSpeedDistanceL += QEM[LOld * 4 + LNew];
-    Lfired = 1;
+    //LNew = ((GPIOA->IDR >> 0) & 1) * 2 + ((GPIOA->IDR >> 1) & 1); // Convert binary input to decimal value // (PINC & 0b0001) gets the value of bit zero in port C (A0), ((PINC & 0b0010) >> 1) gets just the value of A1
+	//LNew = (digitalRead(encoderLB) * 2) + digitalRead(encoderLA); // Convert binary input to decimal value // (PINC & 0b0001) gets the value of bit zero in port C (A0), ((PINC & 0b0010) >> 1) gets just the value of A1
+    counter++;
+	//encoderPosL += QEM[LOld * 4 + LNew];
+    //wheelSpeedDistanceL += QEM[LOld * 4 + LNew];
+    Lfired = 1;//*/
+	//encoder->tick();
  }
 
 // Print the formatted IMU variables
@@ -236,14 +241,14 @@ void setup()
 	digitalWrite(encoderRB, HIGH);
 
 	// Attach hardware interrupts to encoder pins
-	attachInterrupt(encoderLA, encoderLeft_callback, 	CHANGE);
-	attachInterrupt(encoderLB, encoderLeft_callback, 	CHANGE);
+	//attachInterrupt(encoderLA, encoderLeft_callback, 	CHANGE);
+	//attachInterrupt(encoderLB, encoderLeft_callback, 	CHANGE);
 	//attachInterrupt(encoderRA, encoderRight_callback, 	CHANGE);
 	//attachInterrupt(encoderRB, encoderRight_callback, 	CHANGE);
 
 	// Halt both motors
 	brake(motorL, motorR);
-	//Serial.println("Done - Brakes applied");
+	Serial.println("Done - Brakes applied");
 
 	delay(50);
 	//Serial.print("Initialising PID controllers... ");
@@ -262,7 +267,6 @@ void setup()
 	//Serial.println("Done");
 
 	//encoder = new RotaryEncoder(encoderLA, encoderLB, RotaryEncoder::LatchMode::TWO03);
-	
 
 	//Serial.println("Initializing IMU... ");
 	myICM.begin(CS_PIN, SPI_PORT);
@@ -290,7 +294,9 @@ void setup()
 	noInterrupts();
 	Timer->setOverflow(60, HERTZ_FORMAT); // Read the tachometers 60 times per second
 	Timer->attachInterrupt(speedCalc_callback);
+	
 	interrupts();
+
 
 	Timer->resume();
 	//Serial.println("Done - Timer Active");
@@ -456,8 +462,7 @@ void loop()
 	}
 	else if (sysMode == TEST_TURN)
 	{
-		//if (payload > 0)
-		//{
+		//if (payload > 0){
 			motorL_PID.speedDesired = atof(payload);
 			motorR_PID.speedDesired = atof(payload);
 
@@ -543,11 +548,39 @@ void loop()
 			Serial.print(tachoR_o.getVelocity());
 			Serial.println();
 		}*/
-		  /*long newPosition = myEncL.read();
-			if (newPosition != oldPosition) {
-				oldPosition = newPosition;
-				Serial.println(newPosition);
-			}*/
+		long newPosition = myEnc.read();
+		if (newPosition != oldPosition) {
+			oldPosition = newPosition;
+			Serial.print(newPosition);
+			Serial.print("\t");
+			Serial.println(((GPIOA->IDR >> 1) & 1));
+		}
+/*
+		uint8_t p1val = ((GPIOA->IDR >> 0) & 1);// DIRECT_PIN_READ(arg->pin1_register, arg->pin1_bitmask);
+		uint8_t p2val = ((GPIOA->IDR >> 1) & 1);// DIRECT_PIN_READ(arg->pin2_register, arg->pin2_bitmask);
+		uint8_t state = arg->state & 3;
+		if (p1val) state |= 4;
+		if (p2val) state |= 8;
+		arg->state = (state >> 2);
+		switch (state) {
+			case 1: case 7: case 8: case 14:
+				//arg->position++;
+				return;
+			case 2: case 4: case 11: case 13:
+				//arg->position--;
+				return;
+			case 3: case 12:
+				//arg->position += 2;
+				return;
+			case 6: case 9:
+				//arg->position -= 2;
+				return;
+			default: ;
+		}
+*/
+		//Serial.println(digitalRead(192));
+		//Serial.println(oldPosition);
+		//Serial.println();
 		/*if(tachoL_o.fired){
 			Serial.print(tachoL_o.wheelSpeedDistanceL);
 			Serial.print("\t");
@@ -560,7 +593,6 @@ void loop()
 			tachoL_o.fired = 0;
 		}*/
 		
-		
 		//static int pos = 0;
 		//encoder->tick();
 		/*int newPos = encoder->getPosition();
@@ -572,15 +604,31 @@ void loop()
 			Serial.println((int)(encoder->getDirection()));
 			pos = newPos;
 		//} // if*/
-		if(encoderPosL < fullRev){
-			motorL.drive(-100); // Output
-			Serial.println(encoderPosL);
-		}else{
-			encoderPosL = 0;
-			motorL.drive(0); // Output
-			Serial.println(encoderPosL);
-			sysMode = IDLE;
+		//int tmpPos = encoder->getPosition();
+		/*switch(iter){
+			case 200: iter_coeff = -1; break;
+			case -200: iter_coeff = 1; break;
+			case 0: motorL.drive(0); delay(500); break;
+			default: break;
 		}
+
+		iter += iter_coeff;
+		//*/
+		//sysMode = IDLE;
+		//encoder->setPosition(0);
+
+		//if(encoder->getPosition() < fullRev){
+			//motorL.drive(iter);
+		//}//*/
+		//if(Lfired){
+			//Serial.print(encoder->getPosition());encoderPosL
+			//Serial.print(encoderPosL);
+		//	//Serial.print("\t");
+			//Serial.print(encoder->getRPM());
+			//Serial.print("\t");
+			//Serial.print((int)(encoder->getDirection()));
+			//Serial.println();
+		//}
 	}
 	else if (sysMode == STOPPED)
 	{
