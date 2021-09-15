@@ -1,10 +1,10 @@
 #include <Arduino.h>
-#include <SparkFun_TB6612.h>
+//#include <SparkFun_TB6612.h>
 #include <ICM_20948.h> // Sparkfun ICM_20948 IMU module
-#include <PID_v1.h>
-#include "motorClass.h"
-#include <Adafruit_Sensor.h>
-#include <Adafruit_AHRS.h>
+//#include <PID_v1.h>
+//#include "motorClass.h"
+//#include <Adafruit_Sensor.h>
+//#include <Adafruit_AHRS.h>
 
 // Hardware Timer check
 #if !defined(STM32_CORE_VERSION) || (STM32_CORE_VERSION < 0x01090000)
@@ -123,14 +123,14 @@ int sysMode = IDLE; // Current system state
 const int offsetA = 1; //  Set offset values to adjust motor direction if necessary. Values: 1 or -1
 const int offsetB = 1;
 
-Motor motorL = Motor(BIN1, BIN2, PWMB, offsetB, STBY); // Left Motor
-Motor motorR = Motor(AIN1, AIN2, PWMA, offsetA, STBY); // Right Motor
+//Motor motorL = Motor(BIN1, BIN2, PWMB, offsetB, STBY); // Left Motor
+//Motor motorR = Motor(AIN1, AIN2, PWMA, offsetA, STBY); // Right Motor
 
 //******************************//
 //******* PID SETUP ************//
 //******************************//
-PID pidLeft(&motorL_PID.speed, &motorL_PID.speedPWM, &motorL_PID.speedDesired, motorL_PID.kp, motorL_PID.ki, motorL_PID.kd, P_ON_M, DIRECT);
-PID pidRight(&motorR_PID.speed, &motorR_PID.speedPWM, &motorR_PID.speedDesired, motorR_PID.kp, motorR_PID.ki, motorR_PID.kd, P_ON_M, DIRECT);
+//PID pidLeft(&motorL_PID.speed, &motorL_PID.speedPWM, &motorL_PID.speedDesired, motorL_PID.kp, motorL_PID.ki, motorL_PID.kd, P_ON_M, DIRECT);
+//PID pidRight(&motorR_PID.speed, &motorR_PID.speedPWM, &motorR_PID.speedDesired, motorR_PID.kp, motorR_PID.ki, motorR_PID.kd, P_ON_M, DIRECT);
 
 //******************************//
 //******* TIMER SETUP **********//
@@ -144,15 +144,15 @@ HardwareTimer *Timer2 = new HardwareTimer(Instance2);
 //******************************//
 //**** TACHOMETER SETUP ********//
 //******************************//
-tachoWheel tachoR_o; // Right Tachometer sObject (Will be integrated into the motor class)
-tachoWheel tachoL_o; // Right Tachometer Object (Will be integrated into the motor class)
+//tachoWheel tachoR_o; // Right Tachometer sObject (Will be integrated into the motor class)
+//tachoWheel tachoL_o; // Right Tachometer Object (Will be integrated into the motor class)
 
 //******************************//
 //******** IMU SETUP ***********//
 //******************************//
 uint32_t timestamp;
 //Adafruit_NXPSensorFusion filter; // slowest
-Adafruit_Madgwick filter;  // faster than NXP // Madgwick was chosen as http://www.cs.ndsu.nodak.edu/~siludwig/Publish/papers/SPIE20181.pdf details that it is better on average
+//Adafruit_Madgwick filter;  // faster than NXP // Madgwick was chosen as http://www.cs.ndsu.nodak.edu/~siludwig/Publish/papers/SPIE20181.pdf details that it is better on average
 //Adafruit_Mahony filter;  // fastest/smalleset
 double magZtot = 0;
 double magZavg = 0;
@@ -203,15 +203,15 @@ bool stringComplete = false; // Serial string completion
 // Speed Calc Callback
 void speedCalc_callback(void)
 {
-	tachoL_o.calcVelocity();
-	tachoR_o.calcVelocity();
-	motorL_PID.speed = tachoL_o.getVelocity();
-	motorR_PID.speed = tachoR_o.getVelocity();
+	//tachoL_o.calcVelocity();
+	//tachoR_o.calcVelocity();
+	//motorL_PID.speed = tachoL_o.getVelocity();
+	//motorR_PID.speed = tachoR_o.getVelocity();
 }
 
 // Hall encoder ISRs. Called once for each sensor on pin-change (quadrature)
-void encoderLeft_callback(void) { tachoL_o.encoderTick(); }
-void encoderRight_callback(void) { tachoR_o.encoderTick(); }
+//void encoderLeft_callback(void) { tachoL_o.encoderTick(); }
+//void encoderRight_callback(void) { tachoR_o.encoderTick(); }
 
 void printFormattedFloat(float val, uint8_t leading, uint8_t decimals)
 {
@@ -294,29 +294,29 @@ void setup()
 	digitalWrite(encoderRB, HIGH);
 
 	// Attach hardware interrupts to encoder pins
-	attachInterrupt(encoderLA, encoderLeft_callback, CHANGE);
-	attachInterrupt(encoderLB, encoderLeft_callback, CHANGE);
-	attachInterrupt(encoderRA, encoderRight_callback, CHANGE);
-	attachInterrupt(encoderRB, encoderRight_callback, CHANGE);
+	//attachInterrupt(encoderLA, encoderLeft_callback, CHANGE);
+	//attachInterrupt(encoderLB, encoderLeft_callback, CHANGE);
+	//attachInterrupt(encoderRA, encoderRight_callback, CHANGE);
+	//attachInterrupt(encoderRB, encoderRight_callback, CHANGE);
 
 	// Halt both motors
-	brake(motorL, motorR);
+	//brake(motorL, motorR);
 	//Serial.println("Done - Brakes applied");
 
 	delay(50);
 	//Serial.print("Initialising PID controllers... ");
-	pidLeft.SetMode(AUTOMATIC); //start calculation.
-	pidLeft.SetOutputLimits(-250, 250);
-	pidLeft.SetSampleTime(20);
+	//pidLeft.SetMode(AUTOMATIC); //start calculation.
+	//pidLeft.SetOutputLimits(-250, 250);
+	//pidLeft.SetSampleTime(20);
 
-	pidRight.SetMode(AUTOMATIC); //start calculation.
-	pidRight.SetOutputLimits(-250, 250);
-	pidRight.SetSampleTime(20);
+	//pidRight.SetMode(AUTOMATIC); //start calculation.
+	//pidRight.SetOutputLimits(-250, 250);
+	//pidRight.SetSampleTime(20);
 	//Serial.println("Done");
 
 	//Serial.print("Setting PID characteristics... ");
-	pidLeft.SetTunings(0.8, 11.0, 0.1); // kP, kI, kD
-	pidRight.SetTunings(0.05, 18.0, 0.01);
+	//pidLeft.SetTunings(0.8, 11.0, 0.1); // kP, kI, kD
+	//pidRight.SetTunings(0.05, 18.0, 0.01);
 	//Serial.println("Done");
 
 	//Serial.println("Initializing IMU... ");
@@ -342,6 +342,17 @@ void setup()
 			//Serial.println("IMU initialized");
 		}
 	}
+	bool success = true; // Use success to show if the DMP configuration was successful
+	success &= (myICM.initializeDMP() == ICM_20948_Stat_Ok);
+	success &= (myICM.enableDMPSensor(INV_ICM20948_SENSOR_ORIENTATION) == ICM_20948_Stat_Ok);
+	success &= (myICM.setDMPODRrate(DMP_ODR_Reg_Quat9, 0) == ICM_20948_Stat_Ok); // Set to the maximum
+	success &= (myICM.enableFIFO() == ICM_20948_Stat_Ok);
+	success &= (myICM.enableDMP() == ICM_20948_Stat_Ok);
+  	success &= (myICM.resetDMP() == ICM_20948_Stat_Ok);
+	success &= (myICM.resetFIFO() == ICM_20948_Stat_Ok);
+
+
+
 
 	//Serial.print("Configuring Timer... ");
 	delay(500);
@@ -441,12 +452,12 @@ void loop()
 	{
 		motorR_PID.speedDesired = 0;
 		motorL_PID.speedDesired = 0;
-		motorL.drive(0); // Output
-		motorR.drive(0); // Output
+		//motorL.drive(0); // Output
+		//motorR.drive(0); // Output
 	}
 	else if (sysMode == TEST_IMU)
 	{
-		//*
+		/*
 		if (myICM.dataReady())
 		{
 			float roll, pitch, heading;
@@ -471,10 +482,10 @@ void loop()
 			magYavg = 0;
 			for(counter_1 = 0; counter_1 < 10; counter_1++){magYavg += avgMagY[counter_1];}
 
-			filter.update(
-				myICM.gyrX(), myICM.gyrY(), myICM.gyrZ(),
-				myICM.accX(), myICM.accY(), myICM.accZ(),
-				myICM.magX(), myICM.magY(), magZavg/10);
+			//filter.update(
+			//	myICM.gyrX(), myICM.gyrY(), myICM.gyrZ(),
+			//	myICM.accX(), myICM.accY(), myICM.accZ(),
+			//	myICM.magX(), myICM.magY(), magZavg/10);
 			
 			#if defined(AHRS_DEBUG_OUTPUT)
 			Serial.print("Update took "); Serial.print(millis()-timestamp); Serial.println(" ms");
@@ -487,9 +498,9 @@ void loop()
 			counter = 0;
 
 			// print the heading, pitch and roll
-			roll 	= filter.getRoll();
-			pitch 	= filter.getPitch();
-			heading = filter.getYaw();
+			//roll 	= filter.getRoll();
+			//pitch 	= filter.getPitch();
+			//heading = filter.getYaw();
 			//Serial.print("Orientation: ");
 			//Serial.print(heading);	Serial.print("\t");
 			//Serial.print(pitch);	Serial.print("\t");
@@ -540,6 +551,47 @@ void loop()
 		}
 		
 		//*/
+
+		icm_20948_DMP_data_t data;
+		myICM.readDMPdataFromFIFO(&data);
+
+		if ((myICM.status == ICM_20948_Stat_Ok) || (myICM.status == ICM_20948_Stat_FIFOMoreDataAvail)) // Was valid data available?
+		{
+			//SERIAL_PORT.print(F("Received data! Header: 0x")); // Print the header in HEX so we can see what data is arriving in the FIFO
+			//if ( data.header < 0x1000) SERIAL_PORT.print( "0" ); // Pad the zeros
+			//if ( data.header < 0x100) SERIAL_PORT.print( "0" );
+			//if ( data.header < 0x10) SERIAL_PORT.print( "0" );
+			//SERIAL_PORT.println( data.header, HEX );
+
+			if ((data.header & DMP_header_bitmap_Quat9) > 0) // We have asked for orientation data so we should receive Quat9
+			{
+			// Q0 value is computed from this equation: Q0^2 + Q1^2 + Q2^2 + Q3^2 = 1.
+			// In case of drift, the sum will not add to 1, therefore, quaternion data need to be corrected with right bias values.
+			// The quaternion data is scaled by 2^30.
+
+			//SERIAL_PORT.printf("Quat9 data is: Q1:%ld Q2:%ld Q3:%ld Accuracy:%d\r\n", data.Quat9.Data.Q1, data.Quat9.Data.Q2, data.Quat9.Data.Q3, data.Quat9.Data.Accuracy);
+
+			// Scale to +/- 1
+			double q1 = ((double)data.Quat9.Data.Q1) / 1073741824.0; // Convert to double. Divide by 2^30
+			double q2 = ((double)data.Quat9.Data.Q2) / 1073741824.0; // Convert to double. Divide by 2^30
+			double q3 = ((double)data.Quat9.Data.Q3) / 1073741824.0; // Convert to double. Divide by 2^30
+			double q0 = sqrt(1.0 - ((q1 * q1) + (q2 * q2) + (q3 * q3)));
+
+			Serial.print("w");
+			Serial.print(q0, 3);
+			Serial.print("wa");
+			Serial.print(q1, 3);
+			Serial.print("ab");
+			Serial.print(q2, 3);
+			Serial.print("bc");
+			Serial.print(q3, 3);
+			Serial.print("c");
+			Serial.println();
+			//Serial.println(data.Quat9.Data.Accuracy);
+		
+			}
+		}
+
 	}
 	else if (sysMode == TEST_DRIVE_SPEED)
 	{
@@ -548,12 +600,12 @@ void loop()
 			motorL_PID.speedDesired = atof(payload);
 			motorR_PID.speedDesired = atof(payload);
 
-			pidLeft.Compute();
-			pidRight.Compute();
+			//pidLeft.Compute();
+			//pidRight.Compute();
 
 			// TODO NOT WORKING IN REVERSE
-			motorL.drive(motorL_PID.speedPWM); // Output
-			motorR.drive(motorR_PID.speedPWM); // Output
+			//motorL.drive(motorL_PID.speedPWM); // Output
+			//motorR.drive(motorR_PID.speedPWM); // Output
 
 			// Print information on the serial monitor
 			Serial.print(motorL_PID.speedDesired); // Tachometer
@@ -566,10 +618,10 @@ void loop()
 		}
 		else
 		{
-			motorL.drive(0); // Output
-			motorR.drive(0); // Output
-			delay(20);
-			brake(motorL, motorR);
+			//motorL.drive(0); // Output
+			//motorR.drive(0); // Output
+			//delay(20);
+			//brake(motorL, motorR);
 		}
 	}
 	else if (sysMode == TEST_DRIVE)
@@ -578,11 +630,11 @@ void loop()
 		//motorL_PID.speedDesired = map(iter, 0, 600, 0, 140);
 		//motorR_PID.speedDesired = map(iter, 0, 600, 0, 140);
 
-		pidLeft.Compute();
-		pidRight.Compute();
+		//pidLeft.Compute();
+		//pidRight.Compute();
 
-		motorL.drive(motorL_PID.speedPWM); // Output
-		motorR.drive(motorR_PID.speedPWM); // Output
+		//motorL.drive(motorL_PID.speedPWM); // Output
+		//motorR.drive(motorR_PID.speedPWM); // Output
 
 		// Print information on the serial monitor
 		Serial.print(motorL_PID.speedDesired); // Tachometer
@@ -598,9 +650,9 @@ void loop()
 	{
 		motorR_PID.speedDesired = 0;
 		motorL_PID.speedDesired = 0;
-		motorL.drive(0); // Output
-		motorR.drive(0); // Output
-		brake(motorL, motorR);
+		//motorL.drive(0); // Output
+		//motorR.drive(0); // Output
+		//brake(motorL, motorR);
 	}
 	delay(10); // 30 was pretty high. Changed to 10 for smoother communication and operation
 }
