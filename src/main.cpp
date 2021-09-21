@@ -444,6 +444,7 @@ void loop()
 
 			myICM.getAGMT();
 			printScaledAGMT(&myICM);
+			delay(30);
 			/*filter.update(
 				myICM.gyrX(), myICM.gyrY(), myICM.gyrZ(),
 				myICM.accX(), myICM.accY(), myICM.accZ(),
