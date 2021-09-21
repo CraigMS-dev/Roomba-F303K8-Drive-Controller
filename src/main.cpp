@@ -41,8 +41,12 @@
 //#define AHRS_DEBUG_OUTPUT
 
 #define RAW_MADGWICK
+#define DPM_ONLY
+
+#define OUTPUT_TEAPOT_QUAT
 //#define OUTPUT_QUAT
-#define OUTPUT_RAW
+//#define OUTPUT_RAW
+//#define OUTPUT_EULER
 
 // Configure SPI for IMU
 ICM_20948_SPI myICM; // If using SPI create an ICM_20948_SPI object
@@ -453,12 +457,11 @@ void loop()
 			//timestamp = millis();
 
 			#ifdef RAW_MADGWICK
-				/*MadgwickAHRSupdate(
-					myICM.gyrX(), 	myICM.gyrY(), 	myICM.gyrZ(),
-					myICM.accX(), 	myICM.accY(), 	myICM.accZ(),
-					myICM.magX(), 	myICM.magY(), 	myICM.magZ()
-				);//*/
-
+				MadgwickAHRSupdate(
+					myICM.gyrX()*0.017453, 	myICM.gyrY()*0.017453, 	myICM.gyrZ()*0.017453, // Degrees/s => rad/s
+					myICM.accX()/1000, 	myICM.accY()/1000, 	myICM.accZ()/1000, // Milli g's => g's
+					myICM.magX()/0.000000001, 	myICM.magY(), 	myICM.magZ()  // Micro teslas => teslas
+				);
 			#endif
 			
 			#ifdef ADAFRUIT_MADGWICK
@@ -496,7 +499,7 @@ void loop()
 				Serial.println(roll);
 			#endif
 			
-			#ifdef OUTPUT_QUAT
+			#ifdef OUTPUT_TEAPOT_QUAT
 				Serial.print("w");
 				Serial.print(q0);
 				Serial.print("wa");
