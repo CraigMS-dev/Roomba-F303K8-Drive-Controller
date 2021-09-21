@@ -431,11 +431,11 @@ void loop()
 	{
 		if (myICM.dataReady())
 		{
-			//float roll, pitch, heading;
+			float roll, pitch, heading;
   			//float gx, gy, gz;
 			//float Mx, My, Mz;
 			//float psi;
-			//static uint8_t counter = 0;
+			static uint8_t counter = 0;
 
 			//if ((millis() - timestamp) < (1000 / FILTER_UPDATE_RATE_HZ)) {
 			//	return;
@@ -443,29 +443,27 @@ void loop()
 			//timestamp = millis();
 
 			myICM.getAGMT();
-			printScaledAGMT(&myICM);
-			delay(30);
-			/*filter.update(
+			filter.update(
 				myICM.gyrX(), myICM.gyrY(), myICM.gyrZ(),
 				myICM.accX(), myICM.accY(), myICM.accZ(),
-				myICM.magX(), myICM.magY(), myICM.magZ());*/
+				myICM.magX()*1000, myICM.magY()*1000, myICM.magZ()*1000);//*/
 			
-			/*Mx = myICM.magX();
+			Mx = myICM.magX();
 			My = myICM.magY();
 			Mz = myICM.magZ();
 			
-			psi = atan2(My,Mx)/(2*3.14)*360; // Mag corrected compass
-			Serial.print(myICM.magX());
-			Serial.print("\t");
-			Serial.print(myICM.magY());
-			Serial.print("\t");
-			Serial.print(myICM.magZ());
-			Serial.print("\t");
-			Serial.println(psi);*/
+			//psi = (atan2(My,Mx)/(2*3.14)*360)-90; // Mag corrected compass
+			//Serial.print(myICM.magX());
+			//Serial.print("\t");
+			//Serial.print(myICM.magY());
+			//Serial.print("\t");
+			//Serial.print(myICM.magZ());
+			//Serial.print("\t");
+			//Serial.println(psi);//*/
 			
-			//#if defined(AHRS_DEBUG_OUTPUT)
-			//Serial.print("Update took "); Serial.print(millis()-timestamp); Serial.println(" ms");
-			//#endif
+			#if defined(AHRS_DEBUG_OUTPUT)
+			Serial.print("Update took "); Serial.print(millis()-timestamp); Serial.println(" ms");
+			#endif
 			// only print the calculated output once in a while
 			/*if (counter++ <= PRINT_EVERY_N_UPDATES) {
 				return;
@@ -474,21 +472,21 @@ void loop()
 			//counter = 0;
 
 			// print the heading, pitch and roll
-			//roll 	= filter.getRoll();
-			//pitch 	= filter.getPitch();
-			//heading = filter.getYaw();
+			roll 	= filter.getRoll();
+			pitch 	= filter.getPitch();
+			heading = filter.getYaw();
 			//Serial.print("Orientation: ");
 			//Serial.print(heading);	Serial.print("\t");
 			//Serial.print(pitch);	Serial.print("\t");
 			//Serial.println(roll);
 
-			//Serial.print("y");
-			//Serial.print(heading);
-			//Serial.print("yp");
-			//Serial.print(pitch);
-			//Serial.print("pr");
-			//Serial.print(roll);
-			//Serial.println("r");
+			Serial.print("y");
+			Serial.print(heading);
+			Serial.print("yp");
+			Serial.print(pitch);
+			Serial.print("pr");
+			Serial.print(roll);
+			Serial.println("r");
 
 			// y168.8099yp12.7914pr-11.8401r
 		}
