@@ -3,8 +3,10 @@
 #include <ICM_20948.h> // Sparkfun ICM_20948 IMU module
 #include <PID_v1.h>
 #include "motorClass.h"
-#include <Adafruit_Sensor.h>
-#include <Adafruit_AHRS.h>
+//#include <Adafruit_Sensor.h>
+//#include <Adafruit_AHRS.h>
+#include "MadgwickAHRS.h"
+#include "MadgwickAHRS.c"
 
 // Hardware Timer check
 #if !defined(STM32_CORE_VERSION) || (STM32_CORE_VERSION < 0x01090000)
@@ -37,6 +39,10 @@
 #define FILTER_UPDATE_RATE_HZ 100
 #define PRINT_EVERY_N_UPDATES 10
 //#define AHRS_DEBUG_OUTPUT
+
+#define RAW_MADGWICK
+//#define OUTPUT_QUAT
+#define OUTPUT_RAW
 
 // Configure SPI for IMU
 ICM_20948_SPI myICM; // If using SPI create an ICM_20948_SPI object
@@ -145,8 +151,9 @@ tachoWheel tachoL_o; // Right Tachometer Object (Will be integrated into the mot
 //******** IMU SETUP ***********//
 //******************************//
 uint32_t timestamp;
+bool imu_ready = 0;
 //Adafruit_NXPSensorFusion filter; // slowest
-Adafruit_Madgwick filter;  // faster than NXP // Madgwick was chosen as http://www.cs.ndsu.nodak.edu/~siludwig/Publish/papers/SPIE20181.pdf details that it is better on average
+//Adafruit_Madgwick filter;  // faster than NXP // Madgwick was chosen as http://www.cs.ndsu.nodak.edu/~siludwig/Publish/papers/SPIE20181.pdf details that it is better on average
 //Adafruit_Mahony filter;  // fastest/smalleset
 
 //******************************//
@@ -166,7 +173,7 @@ char modeSelect;			 // Mode select variable - Populated by the first character o
 bool stringComplete = false; // Serial string completion
 
 // Direction Callback - Calculate direction with IMU
-//void dirCalc_callback(void){
+void dirCalc_callback(void){
 	//timer_1 = millis();
 	/*if (myICM.dataReady()){
 		myICM.getAGMT();
@@ -181,7 +188,12 @@ bool stringComplete = false; // Serial string completion
 		}
 	}//*/
 	//Serial.println(millis());
-//}
+	if (myICM.dataReady())
+	{
+		myICM.getAGMT();
+		imu_ready = 1;
+	}
+}
 
 // Speed Calc Callback
 void speedCalc_callback(void)
@@ -332,12 +344,12 @@ void setup()
 	Timer->setOverflow(60, HERTZ_FORMAT); // Read the tachometers 60 times per second
 	Timer->attachInterrupt(speedCalc_callback);
 
-	//Timer2->setOverflow(120, HERTZ_FORMAT); // Read the tachometers 60 times per second
-	//Timer2->attachInterrupt(dirCalc_callback);
+	Timer2->setOverflow(200, HERTZ_FORMAT); // Read the tachometers 60 times per second
+	Timer2->attachInterrupt(dirCalc_callback);
 	interrupts();
 
 	Timer->resume();
-	//Timer2->resume();
+	Timer2->resume();
 	//Serial.println("Done - Timer Active");
 	
 	timestamp = millis();
@@ -429,29 +441,37 @@ void loop()
 	}
 	else if (sysMode == TEST_IMU)
 	{
-		if (myICM.dataReady())
+		//if (myICM.dataReady())
+		if (imu_ready)
 		{
-			float roll, pitch, heading;
+			//float roll, pitch, heading;
   			//float gx, gy, gz;
 			//float Mx, My, Mz;
 			//float psi;
-			static uint8_t counter = 0;
+			//static uint8_t counter = 0;
 
-			//if ((millis() - timestamp) < (1000 / FILTER_UPDATE_RATE_HZ)) {
-			//	return;
-			//}
 			//timestamp = millis();
 
-			myICM.getAGMT();
-			filter.update(
-				myICM.gyrX(), myICM.gyrY(), myICM.gyrZ(),
-				myICM.accX(), myICM.accY(), myICM.accZ(),
-				myICM.magX()*1000, myICM.magY()*1000, myICM.magZ()*1000);//*/
+			#ifdef RAW_MADGWICK
+				/*MadgwickAHRSupdate(
+					myICM.gyrX(), 	myICM.gyrY(), 	myICM.gyrZ(),
+					myICM.accX(), 	myICM.accY(), 	myICM.accZ(),
+					myICM.magX(), 	myICM.magY(), 	myICM.magZ()
+				);//*/
+
+			#endif
 			
-			Mx = myICM.magX();
-			My = myICM.magY();
-			Mz = myICM.magZ();
+			#ifdef ADAFRUIT_MADGWICK
+				filter.update(
+					myICM.gyrX(), myICM.gyrY(), myICM.gyrZ(),
+					myICM.accX(), myICM.accY(), myICM.accZ(),
+					myICM.magX()*1000, myICM.magY()*1000, myICM.magZ()*1000);//*/
 			
+				Mx = myICM.magX();
+				My = myICM.magY();
+				Mz = myICM.magZ();
+			#endif
+
 			//psi = (atan2(My,Mx)/(2*3.14)*360)-90; // Mag corrected compass
 			//Serial.print(myICM.magX());
 			//Serial.print("\t");
@@ -460,35 +480,46 @@ void loop()
 			//Serial.print(myICM.magZ());
 			//Serial.print("\t");
 			//Serial.println(psi);//*/
-			
-			#if defined(AHRS_DEBUG_OUTPUT)
-			Serial.print("Update took "); Serial.print(millis()-timestamp); Serial.println(" ms");
+
+			#ifdef OUTPUT_RAW
+				printScaledAGMT(&myICM);
 			#endif
-			// only print the calculated output once in a while
-			/*if (counter++ <= PRINT_EVERY_N_UPDATES) {
-				return;
-			}*/
-			// reset the counter
-			//counter = 0;
 
-			// print the heading, pitch and roll
-			roll 	= filter.getRoll();
-			pitch 	= filter.getPitch();
-			heading = filter.getYaw();
-			//Serial.print("Orientation: ");
-			//Serial.print(heading);	Serial.print("\t");
-			//Serial.print(pitch);	Serial.print("\t");
-			//Serial.println(roll);
+			#ifdef OUTPUT_AHRS
+				//print the heading, pitch and roll
+				roll 	= filter.getRoll();
+				pitch 	= filter.getPitch();
+				heading = filter.getYaw();
+				Serial.print("Orientation: ");
+				Serial.print(heading);	Serial.print("\t");
+				Serial.print(pitch);	Serial.print("\t");
+				Serial.println(roll);
+			#endif
+			
+			#ifdef OUTPUT_QUAT
+				Serial.print("w");
+				Serial.print(q0);
+				Serial.print("wa");
+				Serial.print(q1);
+				Serial.print("ab");
+				Serial.print(q2);
+				Serial.print("bc");
+				Serial.print(q3);
+				Serial.println("c");
+			#endif
 
-			Serial.print("y");
-			Serial.print(heading);
-			Serial.print("yp");
-			Serial.print(pitch);
-			Serial.print("pr");
-			Serial.print(roll);
-			Serial.println("r");
-
-			// y168.8099yp12.7914pr-11.8401r
+			#ifdef OUTPUT_EULER
+				Serial.print("y");
+				Serial.print(heading);
+				Serial.print("yp");
+				Serial.print(pitch);
+				Serial.print("pr");
+				Serial.print(roll);
+				Serial.println("r");
+				// y168.8099yp12.7914pr-11.8401r
+			#endif
+			
+			imu_ready = 0;
 		}
 		else
 		{
