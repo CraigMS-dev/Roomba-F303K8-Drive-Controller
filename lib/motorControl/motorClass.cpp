@@ -94,6 +94,8 @@ tachoWheel::tachoWheel(int pinA, int pinB, int pinA_offset, int pinB_offset){
 
         calcVelocity();
         Serial.print(average);
+        Serial.print("\t");
+        Serial.print(direction);
         //Serial.println();
     }
 
