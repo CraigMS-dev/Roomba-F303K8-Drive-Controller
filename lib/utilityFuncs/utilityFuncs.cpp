@@ -2,8 +2,8 @@
 #include "utilityFuncs.h"
 
 // Print value (little endian) as binary to serial
-void printBin(uint16_t input){
-  for(int i = 15; i >= 0; i--){
+void printBin(uint16_t input, int n = 16){
+  for(int i = n; i >= 0; i--){
     Serial.print((input >> i) & 1);
     if(i == 4 || i == 8 || i == 12){
       Serial.print(" ");

@@ -2,11 +2,12 @@
 #include <SparkFun_TB6612.h>
 #include <ICM_20948.h> // Sparkfun ICM_20948 IMU module
 #include <PID_v1.h>
-#include "motorClass.h"
-#include "utilityFuncs.h"
-//#include "Rotary.h"
-//#include <RotaryEncoder.h>
-#include <Encoder.h>
+#include "utilityFuncs.h" 
+
+#include "motorClass.h"			// #ifdef ENCODER_TACHO
+//#include "Rotary.h"			// #ifdef rotary_h
+//#include <RotaryEncoder.h> 	// #ifdef RotaryEncoder_h
+//#include <Encoder.h> // #ifdef Encoder_h_
 
 // Hardware Timer check
 #if !defined(STM32_CORE_VERSION) || (STM32_CORE_VERSION < 0x01090000)
@@ -29,6 +30,10 @@
 #define encoderLB A1 //2
 #define encoderRA A2 //3
 #define encoderRB A3 //2
+#define encoderLA_OFFSET 0 // ((GPIOA->IDR >> encoderLA_OFFSET) & 1)
+#define encoderLB_OFFSET 1 // ((GPIOA->IDR >> encoderLB_OFFSET) & 1)
+#define encoderRA_OFFSET 2 // ((GPIOA->IDR >> encoderLA_OFFSET) & 1)
+#define encoderRB_OFFSET 3 // ((GPIOA->IDR >> encoderLB_OFFSET) & 1)
 
 /* Strip lines per inch */
 #define stripLPI 150.0
@@ -110,12 +115,20 @@ HardwareTimer *Timer = new HardwareTimer(Instance1);
 //******************************//
 //**** TACHOMETER SETUP ********//
 //******************************//
-tachoWheel tachoR_o; // Right Tachometer Object (Will be integrated into the motor class)
-tachoWheel tachoL_o; // Right Tachometer Object (Will be integrated into the motor class)
-long oldPosition  = -999;
-//RotaryEncoder *encoder = nullptr;
-//Rotary rotary = Rotary(encoderLA, encoderLB);
-Encoder myEnc(encoderLA, encoderLB);
+#ifdef ENCODER_TACHO
+tachoWheel tachoL_o(encoderLA, encoderLB, encoderLA_OFFSET, encoderLB_OFFSET); // Right Tachometer Object (Will be integrated into the motor class)
+tachoWheel tachoR_o(encoderRA, encoderRB, encoderRA_OFFSET, encoderRB_OFFSET); // Right Tachometer Object (Will be integrated into the motor class)
+#endif
+#ifdef RotaryEncoder_h
+	long oldPosition  = -999;
+	RotaryEncoder *encLeft = nullptr;
+#endif
+#ifdef rotary_h
+	Rotary rotary = Rotary(encoderLA, encoderLB);
+#endif
+#ifdef Encoder_h_
+	Encoder myEnc(encoderLA, encoderLB);
+#endif 
 
 //******************************//
 //******** ITERATORS ***********//
@@ -134,38 +147,51 @@ bool stringComplete = false; // Serial string completion
 // Speed Calc Callback
 void speedCalc_callback(void)
 {
-	tachoL_o.calcVelocity();
-	tachoR_o.calcVelocity();
-	motorL_PID.speed = tachoL_o.getVelocity();
-	motorR_PID.speed = tachoR_o.getVelocity();
+	#ifdef ENCODERS_TACHO
+		tachoL_o.calcVelocity();
+		tachoR_o.calcVelocity();
+		motorL_PID.speed = tachoL_o.getVelocity();
+		motorR_PID.speed = tachoR_o.getVelocity();
+	#endif
 }
 
 volatile long encoderPosL = 0;
 long wheelSpeedDistanceL = 0; // RPM
 // Flags for the encoder triggers - Mainly for debugging
 bool Lfired = 0;
+bool change_fired = 0;
+
 // Encoder tracking flags
 bool running = 1;
 bool Lrun = 1;
+
 // Quadrature Encoder matrix - 2s shouldn't ever appear Sauce: https://cdn.sparkfun.com/datasheets/Robotics/How%20to%20use%20a%20quadrature%20encoder.pdf
 int QEM [16] = {0,-1,1,2,1,0,2,-1,-1,2,0,1,2,1,-1,0};
 int LOld = 0; // Previous encoder value left motor
 int LNew = 0; // New encoder value left motor
 
-// Hall encoder ISRs. Called once for each sensor on pin-change (quadrature)
-//void encoderLeft_callback(void) { tachoL_o.encoderTickLeft(); }
-//void encoderRight_callback(void) { tachoR_o.encoderTick(); }
-void encoderLeft_callback(void){
-	LOld = LNew;
+#ifdef ENCODER_TACHO
+	// Hall encoder ISRs. Called once for each sensor on pin-change (quadrature)
+	void encoderLeft_callback(void)  { tachoL_o.encoderTick();  change_fired = 1;}
+	void encoderLeftA_callback(void) { tachoL_o.encoderTickA(); change_fired = 1;}
+	void encoderLeftB_callback(void) { tachoL_o.encoderTickB(); change_fired = 1;}
+	//void encoderRight_callback(void) { tachoR_o.encoderTick(); }
+#endif
+#ifdef RotaryEncoder_h
+	void encoderLeft_callback(void){encLeft->tick();}
+#endif
+
+//void encoderLeft_callback(void){
+//LOld = LNew;
 	// Access the Digital Input Register directly - MUCH faster than digitalRead()
     //LNew = ((GPIOA->IDR >> 0) & 1) * 2 + ((GPIOA->IDR >> 1) & 1); // Convert binary input to decimal value // (PINC & 0b0001) gets the value of bit zero in port C (A0), ((PINC & 0b0010) >> 1) gets just the value of A1
 	//LNew = (digitalRead(encoderLB) * 2) + digitalRead(encoderLA); // Convert binary input to decimal value // (PINC & 0b0001) gets the value of bit zero in port C (A0), ((PINC & 0b0010) >> 1) gets just the value of A1
-    counter++;
+//counter++;
 	//encoderPosL += QEM[LOld * 4 + LNew];
     //wheelSpeedDistanceL += QEM[LOld * 4 + LNew];
-    Lfired = 1;//*/
+//Lfired = 1;//*/
 	//encoder->tick();
- }
+ //}
 
 // Print the formatted IMU variables
 void printFormattedFloat(float val, uint8_t leading, uint8_t decimals)
@@ -230,21 +256,30 @@ void setup()
 	while (!Serial){}
 
 	// Configure Encoder Pins
-	Serial.print("Configuring pins and attaching interrupts... ");
-	pinMode(encoderLA, INPUT);
-	pinMode(encoderLB, INPUT);
-	pinMode(encoderRA, INPUT);
-	pinMode(encoderRB, INPUT);
-	digitalWrite(encoderLA, HIGH);
-	digitalWrite(encoderLB, HIGH);
-	digitalWrite(encoderRA, HIGH);
-	digitalWrite(encoderRB, HIGH);
+	Serial.print("Configuring pins and attaching interrupts...");
+	//pinMode(encoderLA, INPUT);
+	//pinMode(encoderLB, INPUT);
+	//pinMode(encoderRA, INPUT);
+	//pinMode(encoderRB, INPUT);
+	//digitalWrite(encoderLA, HIGH);
+	//digitalWrite(encoderLB, HIGH);
+	//digitalWrite(encoderRA, HIGH);
+	//digitalWrite(encoderRB, HIGH);
 
-	// Attach hardware interrupts to encoder pins
-	//attachInterrupt(encoderLA, encoderLeft_callback, 	CHANGE);
-	//attachInterrupt(encoderLB, encoderLeft_callback, 	CHANGE);
-	//attachInterrupt(encoderRA, encoderRight_callback, 	CHANGE);
-	//attachInterrupt(encoderRB, encoderRight_callback, 	CHANGE);
+	#ifdef ENCODER_TACHO
+		// Attach hardware interrupts to encoder pins
+		attachInterrupt(encoderLA, encoderLeft_callback, CHANGE);
+		attachInterrupt(encoderLB, encoderLeft_callback, CHANGE);
+		//attachInterrupt(encoderLA, encoderLeftA_callback, 	CHANGE);
+		//attachInterrupt(encoderLB, encoderLeftB_callback, 	CHANGE);
+	#endif
+	
+	#ifdef RotaryEncoder_h
+		attachInterrupt(encoderLA, encoderLeft_callback, 	CHANGE);
+		attachInterrupt(encoderLB, encoderLeft_callback, 	CHANGE);
+		//attachInterrupt(encoderRA, encoderRight_callback, 	CHANGE);
+		//attachInterrupt(encoderRB, encoderRight_callback, 	CHANGE);
+	#endif
 
 	// Halt both motors
 	brake(motorL, motorR);
@@ -266,7 +301,9 @@ void setup()
 	pidRight.SetTunings(0.8, 11.0, 0.1);
 	//Serial.println("Done");
 
-	//encoder = new RotaryEncoder(encoderLA, encoderLB, RotaryEncoder::LatchMode::TWO03);
+	#ifdef RotaryEncoder_h
+		encLeft = new RotaryEncoder(encoderLA, encoderLB, RotaryEncoder::LatchMode::TWO03);
+	#endif
 
 	//Serial.println("Initializing IMU... ");
 	myICM.begin(CS_PIN, SPI_PORT);
@@ -371,9 +408,13 @@ void loop()
 			Serial.println("Test Drive Sequence\n");
 			sysMode = TEST_DRIVE;
 		}
-		else if (modeSelect == 'D')
+		else if (modeSelect == 'T')
 		{
 			Serial.println("Test Turn Sequence\n");
+			Serial.print("Angle (payload): ");
+			printString(payload);
+			
+			sysMode = TEST_DRIVE_SPEED;
 			sysMode = TEST_TURN;
 		}
 		else if (modeSelect == 'S')
@@ -493,7 +534,6 @@ void loop()
 	}
 	else if (sysMode == TEST_DRIVE)
 	{
-		
 		if(iter >= 200)
 		{
 			iter = 0;
@@ -542,19 +582,43 @@ void loop()
 	}
 	else if (sysMode == TEST_TACHO)
 	{
+		#ifdef ENCODER_TACHO
+			if(tachoL_o.fired){
+				tachoL_o.sendInfo();
+				tachoL_o.fired = 0;
+			}
+			delay(30);
+		#endif
+		#ifdef Encoder_h_
+			long newPosition = myEnc.read();
+			if (newPosition != oldPosition) {
+				oldPosition = newPosition;
+				Serial.println(newPosition);
+			}
+		#endif
+		#ifdef RotaryEncoder_h
+			static int pos = 0;
+
+			encLeft->tick(); // just call tick() to check the state.
+
+			int newPos = encLeft->getPosition();
+			if(pos != newPos){
+				Serial.print("pos:");
+				Serial.print(newPos);
+				Serial.print(" dir:");
+				Serial.print((int)(encLeft->getDirection()));
+				pos = newPos;
+			}
+		#endif
+		//Serial.println();
 		/*if(tachoL_o.getVelocity() > 0 || tachoR_o.getVelocity() > 0){
 			Serial.print(tachoL_o.getVelocity());
 			Serial.print("\t");
 			Serial.print(tachoR_o.getVelocity());
 			Serial.println();
 		}*/
-		long newPosition = myEnc.read();
-		if (newPosition != oldPosition) {
-			oldPosition = newPosition;
-			Serial.print(newPosition);
-			Serial.print("\t");
-			Serial.println(((GPIOA->IDR >> 1) & 1));
-		}
+		//long newPosition = myEnc.read();
+
 /*
 		uint8_t p1val = ((GPIOA->IDR >> 0) & 1);// DIRECT_PIN_READ(arg->pin1_register, arg->pin1_bitmask);
 		uint8_t p2val = ((GPIOA->IDR >> 1) & 1);// DIRECT_PIN_READ(arg->pin2_register, arg->pin2_bitmask);

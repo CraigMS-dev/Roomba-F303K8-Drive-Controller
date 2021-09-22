@@ -138,7 +138,7 @@ Rotary::Rotary(char _pin1, char _pin2) {
   state = R_START;
 }
 
-unsigned char Rotary::process() {
+unsigned char Rotary::process(){
   // Grab state of input pins.
   //unsigned char pinstate = (digitalRead(pin2) << 1) | digitalRead(pin1);
   unsigned char pinstate = (((GPIOA->IDR >> 1) & 1) << 1) | ((GPIOA->IDR >> 0) & 1);

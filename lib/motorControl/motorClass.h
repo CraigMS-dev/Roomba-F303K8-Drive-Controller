@@ -1,15 +1,50 @@
 #include <Arduino.h>
 
+#define ENCODER_TACHO
+
 class tachoWheel{
     public:
-        tachoWheel();
+        tachoWheel(int pinA, int pinB, int pinA_offset, int pinB_offset);
         
+        /*************
+        * ENCODER VARS
+        **************/
+        int _PinA, _PinB;
+        int _PinAOffset, _PinBOffset;
+	    bool _ASet, _BSet;
+	    long _Position;
+        unsigned char lastState    = 0;
+        unsigned char currentState = (((GPIOA->IDR >> _PinAOffset) & 1) << 1) | ((GPIOA->IDR >> _PinBOffset) & 1);
+        
+        enum class Direction {
+            STILL = 0,
+            CLOCKWISE = 1,
+            COUNTERCLOCKWISE = -1
+        };
+
+        /***********************
+        * DIRECTION AND VELOCITY
+        ************************/
+        Direction getDirection();
+
+        unsigned long   time_between_pulses;
+        long int        getPosition(){return _Position;};
+        unsigned long   getVelocity(){return average;}
+        
+        void            encoderTickA();
+        void            encoderTickB();
+        
+        unsigned long   getRPM();
         void            calcVelocity();
         void            encoderTick();
         void            encoderTickLeft();
         void            encoderTickRight();
+
+                    
+
+        void            sendInfo();
+        void            sendInfo2();
         
-        unsigned long   getVelocity(){return average;}
 
         const uint16_t          PulsesPerRevolution = 1633; // Encoder pulses for 1 full rotation (Quadrature)
         const unsigned long     ZeroTimeout = 100000;       // If the period between pulses is too high, or even if the pulses stopped, then we would get stuck showing the
@@ -57,11 +92,19 @@ class tachoWheel{
         float lastKnownPosR = 0;
 
         bool fired = 0;
-        int QEM [16] = {0,-1,1,2,1,0,2,-1,-1,2,0,1,2,1,-1,0}; 
+        /*int QEM [16] = {0,-1, 1, 2,
+                        1, 0, 2,-1,
+                       -1, 2, 0, 1,
+                        2, 1,-1, 0}; */
+        int QEM[4][4] = {{ 0,-1, 1, 2 },
+                         { 1, 0, 2,-1 },
+                         {-1, 2, 0, 1 },
+                         { 2, 1,-1, 0 }}; 
         int LOld = 0; // Previous encoder value left motor
         int ROld = 0; // Previous encoder value right motor
         int LNew = 0; // New encoder value left motor
         int RNew = 0; // New encoder value right motor
         int increment = 0;
         int8_t direction; // 0 = clockwise, 1 = counter clockwise
+        
 };
