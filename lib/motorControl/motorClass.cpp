@@ -28,17 +28,7 @@ tachoWheel::tachoWheel(int pinA, int pinB, int pinA_offset, int pinB_offset){
         PeriodBetweenPulses   = micros() - LastTimeWeMeasured;
         LastTimeWeMeasured    = micros();
 
-        currentState         = (((GPIOA->IDR >> _PinAOffset) & 1) << 1) | ((GPIOA->IDR >> _PinBOffset) & 1);
-        increment            = QEM[lastState][currentState];
-        
-        PulseCounter        += increment;
-        wheelSpeedDistanceL += increment;
-        
-        lastState = currentState;
-
-        fired = 1;
-
-        /*if(PulseCounter >= AmountOfReadings){  // If counter for amount of readings reach the set limit:
+        if(PulseCounter >= AmountOfReadings){  // If counter for amount of readings reach the set limit:
         
             PeriodAverage  = PeriodSum / AmountOfReadings;
             PulseCounter   = 1;  // Reset the counter to start over. The reset value is 1 because its the minimum setting allowed (1 reading).
@@ -49,13 +39,13 @@ tachoWheel::tachoWheel(int pinA, int pinB, int pinA_offset, int pinB_offset){
                                         // 2nd value is the period value when we are going to have only 1 reading. The higher it is, the lower RPM has to be to reach 1 reading.
                                         // 3rd value is the period value when we are going to have 10 readings. The higher it is, the lower RPM has to be to reach 10 readings.
                                         // 4th and 5th values are the amount of readings range.
-            RemapedAmountOfReadingsL = constrain(RemapedAmountOfReadingsL, 1, 10);  // Constrain the value so it doesn't go below or above the limits.
+            RemapedAmountOfReadingsL = constrain(RemapedAmountOfReadingsL, 1, 5);  // Constrain the value so it doesn't go below or above the limits.
             AmountOfReadings = RemapedAmountOfReadingsL;  // Set amount of readings as the remaped value.
         
         }else{
+            currentState         = (((GPIOA->IDR >> _PinAOffset) & 1) << 1) | ((GPIOA->IDR >> _PinBOffset) & 1);
+            increment            = QEM[lastState][currentState];
             
-            
-
             if(increment > 0){
                 direction = 1;
             }else if(increment < 0){
@@ -63,14 +53,17 @@ tachoWheel::tachoWheel(int pinA, int pinB, int pinA_offset, int pinB_offset){
             }else{
                 direction = 0;
             }
-            
-            PulseCounter += increment;
-            wheelSpeedDistanceL += increment;
 
-            //PulseCounter++;  // Increase the counter for amount of readings by 1.
+            PulseCounter++;  // Increase the counter for amount of readings by 1.
+            wheelSpeedDistanceL += increment;
+            
+            lastState = currentState;
+
+            fired = 1;
+
             PeriodSum = PeriodSum + PeriodBetweenPulses;  // Add the periods so later we can average.
             lastState = currentState;
-        }*/
+        }//*/
     }
     /*void tachoWheel::encoderTickB()
     {
@@ -100,17 +93,8 @@ tachoWheel::tachoWheel(int pinA, int pinB, int pinA_offset, int pinB_offset){
         //increment = QEM[LOld * 4 + LNew];
 
         calcVelocity();
-        printBin(currentState, 1);
-        //Serial.print(currentState);
-        Serial.print("\t");
-        Serial.print(wheelSpeedDistanceL);
-        //Serial.print("\t");
-        //Serial.print(direction);
-        //Serial.print("\t");
-        //Serial.print(average);
-        Serial.print("\t");
-        Serial.print(increment);
-        Serial.println();
+        Serial.print(average);
+        //Serial.println();
     }
 
     void tachoWheel::calcVelocity(){

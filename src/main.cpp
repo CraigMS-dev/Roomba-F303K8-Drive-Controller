@@ -172,9 +172,10 @@ int LNew = 0; // New encoder value left motor
 
 #ifdef ENCODER_TACHO
 	// Hall encoder ISRs. Called once for each sensor on pin-change (quadrature)
-	void encoderLeft_callback(void)  { tachoL_o.encoderTick();  change_fired = 1;}
-	void encoderLeftA_callback(void) { tachoL_o.encoderTickA(); change_fired = 1;}
-	void encoderLeftB_callback(void) { tachoL_o.encoderTickB(); change_fired = 1;}
+	void encoderLeft_callback(void)  { tachoL_o.encoderTick();  }
+	void encoderRight_callback(void) { tachoR_o.encoderTick();  }
+	//void encoderLeftA_callback(void) { tachoL_o.encoderTickA(); }
+	//void encoderLeftB_callback(void) { tachoL_o.encoderTickB(); }
 	//void encoderRight_callback(void) { tachoR_o.encoderTick(); }
 #endif
 #ifdef RotaryEncoder_h
@@ -270,6 +271,8 @@ void setup()
 		// Attach hardware interrupts to encoder pins
 		attachInterrupt(encoderLA, encoderLeft_callback, CHANGE);
 		attachInterrupt(encoderLB, encoderLeft_callback, CHANGE);
+		attachInterrupt(encoderRA, encoderRight_callback, CHANGE);
+		attachInterrupt(encoderRB, encoderRight_callback, CHANGE);
 		//attachInterrupt(encoderLA, encoderLeftA_callback, 	CHANGE);
 		//attachInterrupt(encoderLB, encoderLeftB_callback, 	CHANGE);
 	#endif
@@ -583,10 +586,15 @@ void loop()
 	else if (sysMode == TEST_TACHO)
 	{
 		#ifdef ENCODER_TACHO
-			if(tachoL_o.fired){
+			//if(tachoL_o.fired){
 				tachoL_o.sendInfo();
+				Serial.print("\t");
+				tachoR_o.sendInfo();
+				
 				tachoL_o.fired = 0;
-			}
+				tachoR_o.fired = 0;
+				Serial.println();
+			//}
 			delay(30);
 		#endif
 		#ifdef Encoder_h_
