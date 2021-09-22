@@ -86,8 +86,9 @@ class tachoWheel{
         volatile long encoderPosL = 0;
         volatile long encoderPosR = 0;
 
-        long wheelSpeedDistanceL = 0; // RPM
-        long wheelSpeedDistanceR = 0; // RPM
+        long wheelSpeedDistanceCurrent = 0; // RPM
+        long wheelSpeedDistanceOld = 0; // RPM
+        long wheelSpeedDistanceDif = 0; // RPM
         float lastKnownPosL = 0;
         float lastKnownPosR = 0;
 

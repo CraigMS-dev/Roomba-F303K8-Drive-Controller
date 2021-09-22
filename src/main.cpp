@@ -112,7 +112,7 @@ HardwareTimer *Timer = new HardwareTimer(Instance1);
 //**** TACHOMETER SETUP ********//
 //******************************//
 tachoWheel tachoL_o(encoderLA, encoderLB, encoderLA_OFFSET, encoderLB_OFFSET); // Right Tachometer Object (Will be integrated into the motor class)
-tachoWheel tachoR_o(encoderRA, encoderRB, encoderRA_OFFSET, encoderRB_OFFSET); // Right Tachometer Object (Will be integrated into the motor class)
+tachoWheel tachoR_o(encoderRB, encoderRA, encoderRB_OFFSET, encoderRA_OFFSET); // Right Tachometer Object (Will be integrated into the motor class)
 
 //******************************//
 //******** ITERATORS ***********//
@@ -131,11 +131,11 @@ bool stringComplete = false; // Serial string completion
 // Speed Calc Callback
 void speedCalc_callback(void)
 {
-	#ifdef ENCODERS_TACHO
+	#ifdef ENCODER_TACHO
 		tachoL_o.calcVelocity();
 		tachoR_o.calcVelocity();
-		motorL_PID.speed = tachoL_o.getVelocity();
-		motorR_PID.speed = tachoR_o.getVelocity();
+		//motorL_PID.speed = tachoL_o.getVelocity();
+		//motorR_PID.speed = tachoR_o.getVelocity();
 	#endif
 }
 
@@ -150,9 +150,9 @@ bool running = 1;
 bool Lrun = 1;
 
 // Quadrature Encoder matrix - 2s shouldn't ever appear Sauce: https://cdn.sparkfun.com/datasheets/Robotics/How%20to%20use%20a%20quadrature%20encoder.pdf
-int QEM [16] = {0,-1,1,2,1,0,2,-1,-1,2,0,1,2,1,-1,0};
-int LOld = 0; // Previous encoder value left motor
-int LNew = 0; // New encoder value left motor
+//int QEM [16] = {0,-1,1,2,1,0,2,-1,-1,2,0,1,2,1,-1,0};
+//int LOld = 0; // Previous encoder value left motor
+//int LNew = 0; // New encoder value left motor
 
 	// Hall encoder ISRs. Called once for each sensor on pin-change (quadrature)
 	void encoderLeft_callback(void)  { tachoL_o.encoderTick();  }
@@ -526,12 +526,11 @@ void loop()
 	else if (sysMode == TEST_TACHO)
 	{
 		//if(tachoL_o.fired){
-			tachoL_o.sendInfo();
-			Serial.print("\t");
 			tachoR_o.sendInfo();
-			
-			tachoL_o.fired = 0;
-			tachoR_o.fired = 0;
+			Serial.print("\t");
+			tachoL_o.sendInfo();
+			//tachoL_o.fired = 0;
+			//tachoR_o.fired = 0;
 			Serial.println();
 		//}
 		delay(30);
