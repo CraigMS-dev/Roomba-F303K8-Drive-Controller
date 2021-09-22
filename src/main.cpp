@@ -3,11 +3,7 @@
 #include <ICM_20948.h> // Sparkfun ICM_20948 IMU module
 #include <PID_v1.h>
 #include "utilityFuncs.h" 
-
 #include "motorClass.h"			// #ifdef ENCODER_TACHO
-//#include "Rotary.h"			// #ifdef rotary_h
-//#include <RotaryEncoder.h> 	// #ifdef RotaryEncoder_h
-//#include <Encoder.h> // #ifdef Encoder_h_
 
 // Hardware Timer check
 #if !defined(STM32_CORE_VERSION) || (STM32_CORE_VERSION < 0x01090000)
@@ -115,20 +111,8 @@ HardwareTimer *Timer = new HardwareTimer(Instance1);
 //******************************//
 //**** TACHOMETER SETUP ********//
 //******************************//
-#ifdef ENCODER_TACHO
 tachoWheel tachoL_o(encoderLA, encoderLB, encoderLA_OFFSET, encoderLB_OFFSET); // Right Tachometer Object (Will be integrated into the motor class)
 tachoWheel tachoR_o(encoderRA, encoderRB, encoderRA_OFFSET, encoderRB_OFFSET); // Right Tachometer Object (Will be integrated into the motor class)
-#endif
-#ifdef RotaryEncoder_h
-	long oldPosition  = -999;
-	RotaryEncoder *encLeft = nullptr;
-#endif
-#ifdef rotary_h
-	Rotary rotary = Rotary(encoderLA, encoderLB);
-#endif
-#ifdef Encoder_h_
-	Encoder myEnc(encoderLA, encoderLB);
-#endif 
 
 //******************************//
 //******** ITERATORS ***********//
@@ -170,29 +154,9 @@ int QEM [16] = {0,-1,1,2,1,0,2,-1,-1,2,0,1,2,1,-1,0};
 int LOld = 0; // Previous encoder value left motor
 int LNew = 0; // New encoder value left motor
 
-#ifdef ENCODER_TACHO
 	// Hall encoder ISRs. Called once for each sensor on pin-change (quadrature)
 	void encoderLeft_callback(void)  { tachoL_o.encoderTick();  }
 	void encoderRight_callback(void) { tachoR_o.encoderTick();  }
-	//void encoderLeftA_callback(void) { tachoL_o.encoderTickA(); }
-	//void encoderLeftB_callback(void) { tachoL_o.encoderTickB(); }
-	//void encoderRight_callback(void) { tachoR_o.encoderTick(); }
-#endif
-#ifdef RotaryEncoder_h
-	void encoderLeft_callback(void){encLeft->tick();}
-#endif
-
-//void encoderLeft_callback(void){
-//LOld = LNew;
-	// Access the Digital Input Register directly - MUCH faster than digitalRead()
-    //LNew = ((GPIOA->IDR >> 0) & 1) * 2 + ((GPIOA->IDR >> 1) & 1); // Convert binary input to decimal value // (PINC & 0b0001) gets the value of bit zero in port C (A0), ((PINC & 0b0010) >> 1) gets just the value of A1
-	//LNew = (digitalRead(encoderLB) * 2) + digitalRead(encoderLA); // Convert binary input to decimal value // (PINC & 0b0001) gets the value of bit zero in port C (A0), ((PINC & 0b0010) >> 1) gets just the value of A1
-//counter++;
-	//encoderPosL += QEM[LOld * 4 + LNew];
-    //wheelSpeedDistanceL += QEM[LOld * 4 + LNew];
-//Lfired = 1;//*/
-	//encoder->tick();
- //}
 
 // Print the formatted IMU variables
 void printFormattedFloat(float val, uint8_t leading, uint8_t decimals)
@@ -258,32 +222,13 @@ void setup()
 
 	// Configure Encoder Pins
 	Serial.print("Configuring pins and attaching interrupts...");
-	//pinMode(encoderLA, INPUT);
-	//pinMode(encoderLB, INPUT);
-	//pinMode(encoderRA, INPUT);
-	//pinMode(encoderRB, INPUT);
-	//digitalWrite(encoderLA, HIGH);
-	//digitalWrite(encoderLB, HIGH);
-	//digitalWrite(encoderRA, HIGH);
-	//digitalWrite(encoderRB, HIGH);
 
-	#ifdef ENCODER_TACHO
 		// Attach hardware interrupts to encoder pins
 		attachInterrupt(encoderLA, encoderLeft_callback, CHANGE);
 		attachInterrupt(encoderLB, encoderLeft_callback, CHANGE);
 		attachInterrupt(encoderRA, encoderRight_callback, CHANGE);
 		attachInterrupt(encoderRB, encoderRight_callback, CHANGE);
-		//attachInterrupt(encoderLA, encoderLeftA_callback, 	CHANGE);
-		//attachInterrupt(encoderLB, encoderLeftB_callback, 	CHANGE);
-	#endif
 	
-	#ifdef RotaryEncoder_h
-		attachInterrupt(encoderLA, encoderLeft_callback, 	CHANGE);
-		attachInterrupt(encoderLB, encoderLeft_callback, 	CHANGE);
-		//attachInterrupt(encoderRA, encoderRight_callback, 	CHANGE);
-		//attachInterrupt(encoderRB, encoderRight_callback, 	CHANGE);
-	#endif
-
 	// Halt both motors
 	brake(motorL, motorR);
 	Serial.println("Done - Brakes applied");
@@ -303,10 +248,6 @@ void setup()
 	pidLeft.SetTunings(0.8, 11.0, 0.1); // kP, kI, kD
 	pidRight.SetTunings(0.8, 11.0, 0.1);
 	//Serial.println("Done");
-
-	#ifdef RotaryEncoder_h
-		encLeft = new RotaryEncoder(encoderLA, encoderLB, RotaryEncoder::LatchMode::TWO03);
-	#endif
 
 	//Serial.println("Initializing IMU... ");
 	myICM.begin(CS_PIN, SPI_PORT);
@@ -336,7 +277,6 @@ void setup()
 	Timer->attachInterrupt(speedCalc_callback);
 	
 	interrupts();
-
 
 	Timer->resume();
 	//Serial.println("Done - Timer Active");
@@ -585,122 +525,16 @@ void loop()
 	}
 	else if (sysMode == TEST_TACHO)
 	{
-		#ifdef ENCODER_TACHO
-			//if(tachoL_o.fired){
-				tachoL_o.sendInfo();
-				Serial.print("\t");
-				tachoR_o.sendInfo();
-				
-				tachoL_o.fired = 0;
-				tachoR_o.fired = 0;
-				Serial.println();
-			//}
-			delay(30);
-		#endif
-		#ifdef Encoder_h_
-			long newPosition = myEnc.read();
-			if (newPosition != oldPosition) {
-				oldPosition = newPosition;
-				Serial.println(newPosition);
-			}
-		#endif
-		#ifdef RotaryEncoder_h
-			static int pos = 0;
-
-			encLeft->tick(); // just call tick() to check the state.
-
-			int newPos = encLeft->getPosition();
-			if(pos != newPos){
-				Serial.print("pos:");
-				Serial.print(newPos);
-				Serial.print(" dir:");
-				Serial.print((int)(encLeft->getDirection()));
-				pos = newPos;
-			}
-		#endif
-		//Serial.println();
-		/*if(tachoL_o.getVelocity() > 0 || tachoR_o.getVelocity() > 0){
-			Serial.print(tachoL_o.getVelocity());
+		//if(tachoL_o.fired){
+			tachoL_o.sendInfo();
 			Serial.print("\t");
-			Serial.print(tachoR_o.getVelocity());
-			Serial.println();
-		}*/
-		//long newPosition = myEnc.read();
-
-/*
-		uint8_t p1val = ((GPIOA->IDR >> 0) & 1);// DIRECT_PIN_READ(arg->pin1_register, arg->pin1_bitmask);
-		uint8_t p2val = ((GPIOA->IDR >> 1) & 1);// DIRECT_PIN_READ(arg->pin2_register, arg->pin2_bitmask);
-		uint8_t state = arg->state & 3;
-		if (p1val) state |= 4;
-		if (p2val) state |= 8;
-		arg->state = (state >> 2);
-		switch (state) {
-			case 1: case 7: case 8: case 14:
-				//arg->position++;
-				return;
-			case 2: case 4: case 11: case 13:
-				//arg->position--;
-				return;
-			case 3: case 12:
-				//arg->position += 2;
-				return;
-			case 6: case 9:
-				//arg->position -= 2;
-				return;
-			default: ;
-		}
-*/
-		//Serial.println(digitalRead(192));
-		//Serial.println(oldPosition);
-		//Serial.println();
-		/*if(tachoL_o.fired){
-			Serial.print(tachoL_o.wheelSpeedDistanceL);
-			Serial.print("\t");
-			Serial.print(tachoL_o.direction);
-			Serial.print("\t");
-			Serial.print(tachoL_o.increment);
-			Serial.print("\t");
-			Serial.print(tachoL_o.average);
-			Serial.println();
+			tachoR_o.sendInfo();
+			
 			tachoL_o.fired = 0;
-		}*/
-		
-		//static int pos = 0;
-		//encoder->tick();
-		/*int newPos = encoder->getPosition();
-		//if (pos != newPos) {
-			Serial.print(newPos);
-			Serial.print("\t");
-			Serial.print(encoder->getRPM());
-			Serial.print("\t");
-			Serial.println((int)(encoder->getDirection()));
-			pos = newPos;
-		//} // if*/
-		//int tmpPos = encoder->getPosition();
-		/*switch(iter){
-			case 200: iter_coeff = -1; break;
-			case -200: iter_coeff = 1; break;
-			case 0: motorL.drive(0); delay(500); break;
-			default: break;
-		}
-
-		iter += iter_coeff;
-		//*/
-		//sysMode = IDLE;
-		//encoder->setPosition(0);
-
-		//if(encoder->getPosition() < fullRev){
-			//motorL.drive(iter);
-		//}//*/
-		//if(Lfired){
-			//Serial.print(encoder->getPosition());encoderPosL
-			//Serial.print(encoderPosL);
-		//	//Serial.print("\t");
-			//Serial.print(encoder->getRPM());
-			//Serial.print("\t");
-			//Serial.print((int)(encoder->getDirection()));
-			//Serial.println();
+			tachoR_o.fired = 0;
+			Serial.println();
 		//}
+		delay(30);
 	}
 	else if (sysMode == STOPPED)
 	{
